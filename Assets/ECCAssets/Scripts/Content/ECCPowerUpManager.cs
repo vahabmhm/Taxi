@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -116,11 +116,11 @@ namespace EndlessCarChase
 
             switch (type)
             {
-                case ECCPowerUpType.Nitro: return ECCUIKit.PersianDigits(Mathf.RoundToInt(nitro)) + " ثانیه با سرعت خیلی بیشتر از پلیس‌ها دور شو.";
+                case ECCPowerUpType.Nitro: return ECCUIKit.PersianDigits(Mathf.RoundToInt(nitro)) + " ثانیه با سرعت خیلی بیشتر رانندگی کن؛ برای مسافرهای عجول عالیه.";
                 case ECCPowerUpType.Shield: return ECCUIKit.PersianDigits(Mathf.RoundToInt(shield)) + " ثانیه هیچ ضربه‌ای به ماشینت آسیب نمی‌زند.";
-                case ECCPowerUpType.EMP: return "همه‌ی ماشین‌های پلیس نزدیک تو در یک لحظه از کار می‌افتند.";
+                case ECCPowerUpType.EMP: return "همه‌ی ماشین‌های پلیس نزدیک تو از کار می‌افتند و تاکسی‌های رقیب چند ثانیه خاموش می‌شوند.";
                 case ECCPowerUpType.Repair: return "همین حالا " + ECCUIKit.PersianDigits(Mathf.RoundToInt(repair * 100)) + " درصد سلامت ماشینت برمی‌گردد.";
-                default: return ECCUIKit.PersianDigits(Mathf.RoundToInt(magnet)) + " ثانیه همه‌ی پول‌های اطرافت به سمتت کشیده می‌شوند.";
+                default: return ECCUIKit.PersianDigits(Mathf.RoundToInt(magnet)) + " ثانیه پول‌های اطراف به سمتت کشیده می‌شوند و دایره‌ی سوار کردن مسافر بزرگ‌تر می‌شود.";
             }
         }
 
@@ -459,6 +459,15 @@ namespace EndlessCarChase
 
                 if (ECCRuntimeVisuals.FlatDistance(car.transform.position, center) <= radius)
                 {
+                    // Taxi: a rival taxi isn't destroyed, its engine dies for a few seconds
+                    TaxiRival rival = car.GetComponent<TaxiRival>();
+
+                    if (rival)
+                    {
+                        rival.Stun(TaxiRival.EmpStunSeconds);
+                        continue;
+                    }
+
                     car.invulnerableTime = 0;
                     car.ChangeHealth(-car.health);
                 }

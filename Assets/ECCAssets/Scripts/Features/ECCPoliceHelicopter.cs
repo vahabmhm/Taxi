@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 namespace EndlessCarChase
@@ -41,6 +41,14 @@ namespace EndlessCarChase
         float dropTimer;
         float dropRun;
         bool leaving;
+
+        // Taxi: the police gave up the chase, the helicopter flies away
+        bool dismissed;
+
+        public void Dismiss()
+        {
+            dismissed = true;
+        }
         float leaveTime;
 
         static readonly Color BodyColor = new Color(0.1f, 0.13f, 0.25f);
@@ -158,7 +166,7 @@ namespace EndlessCarChase
 
         bool IsChasing
         {
-            get { return leaving == false && gameController && gameController.isGameOver == false && gameController.playerObject && gameController.playerObject.health > 0; }
+            get { return leaving == false && dismissed == false && gameController && gameController.isGameOver == false && gameController.playerObject && gameController.playerObject.health > 0; }
         }
 
         void Update()

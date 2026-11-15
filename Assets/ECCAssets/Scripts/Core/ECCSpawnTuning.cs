@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace EndlessCarChase
@@ -93,6 +93,21 @@ namespace EndlessCarChase
 
                 spawner.spawnGroups[index].spawnObjects = matches.Count > 0 ? matches.ToArray() : baseSpawnObjects[index];
                 spawner.spawnGroups[index].spawnIndex = 0;
+            }
+        }
+
+        /// <summary>
+        /// Taxi: stops a kind of group from spawning at all ( the police only come after a violation, see TaxiPolice )
+        /// </summary>
+        public void ClearGroups(GroupKind kind)
+        {
+            for (int index = 0; index < kinds.Length; index++)
+            {
+                if (kinds[index] == kind)
+                {
+                    spawner.spawnGroups[index].spawnObjects = new Transform[0];
+                    spawner.spawnGroups[index].spawnIndex = 0;
+                }
             }
         }
 

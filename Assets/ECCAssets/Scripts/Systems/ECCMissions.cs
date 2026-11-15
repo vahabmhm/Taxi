@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,6 +18,15 @@ namespace EndlessCarChase
         // 9 was ReachCombo ( removed with the combo multiplier, don't reuse the value )
         ThreeStarLevels = 10,   // Normal levels won with 3 stars today
         DestroyCopsInOneRun = 11, // Best police cars wrecked in a single run
+
+        // ----- Taxi -----
+        DeliverPassengers = 12, // Passengers brought to their destination today
+        PerfectStops = 13,      // Stops in the middle of the ring today
+        DeliverVips = 14,       // VIP passengers delivered today
+        EarnFares = 15,         // Coins from fares today
+        DeliverInOneShift = 16, // Best passengers delivered in one endless shift
+        FiveStarRides = 17,     // Rides rated 5 stars today
+        EscapePolice = 18,      // Times the police lost the taxi today
     }
 
     public enum ECCMissionDifficulty
@@ -54,7 +63,7 @@ namespace EndlessCarChase
             get
             {
                 return type == ECCMissionType.SurviveSeconds || type == ECCMissionType.ReachWantedLevel || type == ECCMissionType.EarnInOneRun
-                    || type == ECCMissionType.DestroyCopsInOneRun;
+                    || type == ECCMissionType.DestroyCopsInOneRun || type == ECCMissionType.DeliverInOneShift;
             }
         }
     }
@@ -119,38 +128,36 @@ namespace EndlessCarChase
             ECCMissionDifficulty medium = ECCMissionDifficulty.Medium;
             ECCMissionDifficulty hard = ECCMissionDifficulty.Hard;
 
+            // The taxi game's missions
             return new[]
             {
                 // Easy: one or two runs
-                Mission("easy_destroy_5", easy, ECCMissionType.DestroyCops, 5, 60, "{0} ماشین پلیس را نابود کن"),
-                Mission("easy_cash_100", easy, ECCMissionType.CollectCash, 30, 60, "{0} دلار از جاده جمع کن"),
-                Mission("easy_nearmiss_5", easy, ECCMissionType.NearMisses, 5, 60, "{0} بار از بیخ گوش پلیس یا ماشین‌ها رد شو"),
-                Mission("easy_survive_45", easy, ECCMissionType.SurviveSeconds, 45, 60, "در یک دور {0} ثانیه دوام بیاور"),
-                Mission("easy_runs_3", easy, ECCMissionType.PlayRuns, 3, 50, "{0} بار تعقیب را شروع کن"),
+                Mission("easy_deliver_5", easy, ECCMissionType.DeliverPassengers, 5, 60, "{0} مسافر رو به مقصد برسون"),
+                Mission("easy_perfect_3", easy, ECCMissionType.PerfectStops, 3, 60, "{0} بار درست وسط دایره ترمز کن"),
+                Mission("easy_five_star_2", easy, ECCMissionType.FiveStarRides, 2, 60, "{0} سفر پنج‌ستاره داشته باش"),
+                Mission("easy_runs_3", easy, ECCMissionType.PlayRuns, 3, 50, "{0} بار رانندگی رو شروع کن"),
                 Mission("easy_powerups_2", easy, ECCMissionType.UsePowerUps, 2, 60, "{0} قدرت ویژه استفاده کن"),
-                Mission("easy_levels_1", easy, ECCMissionType.CompleteLevels, 1, 70, "{0} مرحله را در مود مرحله‌ای تمام کن"),
-                Mission("easy_wanted_2", easy, ECCMissionType.ReachWantedLevel, 2, 60, "در مود بی‌نهایت به سطح تعقیب {0} برس"),
-                Mission("easy_earn_100", easy, ECCMissionType.EarnInOneRun, 100, 70, "در یک دور {0} سکه به دست بیاور"),
-                Mission("easy_destroy_run_3", easy, ECCMissionType.DestroyCopsInOneRun, 3, 70, "در یک دور {0} ماشین پلیس را نابود کن"),
+                Mission("easy_levels_1", easy, ECCMissionType.CompleteLevels, 1, 70, "{0} مرحله رو در مود مرحله‌ای تموم کن"),
+                Mission("easy_earn_100", easy, ECCMissionType.EarnInOneRun, 100, 70, "در یک دور {0} سکه به دست بیار"),
+                Mission("easy_fares_150", easy, ECCMissionType.EarnFares, 150, 60, "{0} سکه کرایه جمع کن"),
 
                 // Medium: a few focused runs
-                Mission("medium_destroy_15", medium, ECCMissionType.DestroyCops, 15, 120, "{0} ماشین پلیس را نابود کن"),
-                Mission("medium_cash_300", medium, ECCMissionType.CollectCash, 90, 120, "{0} دلار از جاده جمع کن"),
-                Mission("medium_nearmiss_15", medium, ECCMissionType.NearMisses, 15, 120, "{0} بار از بیخ گوش پلیس یا ماشین‌ها رد شو"),
-                Mission("medium_survive_90", medium, ECCMissionType.SurviveSeconds, 90, 130, "در یک دور {0} ثانیه دوام بیاور"),
-                Mission("medium_levels_2", medium, ECCMissionType.CompleteLevels, 2, 140, "{0} مرحله را در مود مرحله‌ای تمام کن"),
-                Mission("medium_wanted_3", medium, ECCMissionType.ReachWantedLevel, 3, 130, "در مود بی‌نهایت به سطح تعقیب {0} برس"),
+                Mission("medium_deliver_15", medium, ECCMissionType.DeliverPassengers, 15, 120, "{0} مسافر رو به مقصد برسون"),
+                Mission("medium_perfect_8", medium, ECCMissionType.PerfectStops, 8, 120, "{0} بار درست وسط دایره ترمز کن"),
+                Mission("medium_vip_1", medium, ECCMissionType.DeliverVips, 1, 130, "{0} مسافر VIP رو برسون"),
+                Mission("medium_shift_6", medium, ECCMissionType.DeliverInOneShift, 6, 130, "در یک شیفت بی‌نهایت {0} مسافر برسون"),
+                Mission("medium_escape_1", medium, ECCMissionType.EscapePolice, 1, 120, "{0} بار از دست پلیس در برو"),
+                Mission("medium_levels_2", medium, ECCMissionType.CompleteLevels, 2, 140, "{0} مرحله رو در مود مرحله‌ای تموم کن"),
                 Mission("medium_powerups_5", medium, ECCMissionType.UsePowerUps, 5, 120, "{0} قدرت ویژه استفاده کن"),
-                Mission("medium_destroy_run_8", medium, ECCMissionType.DestroyCopsInOneRun, 8, 140, "در یک دور {0} ماشین پلیس را نابود کن"),
-                Mission("medium_three_stars_1", medium, ECCMissionType.ThreeStarLevels, 1, 150, "{0} مرحله را با ۳ ستاره تمام کن"),
+                Mission("medium_three_stars_1", medium, ECCMissionType.ThreeStarLevels, 1, 150, "{0} مرحله رو با ۳ ستاره تموم کن"),
 
                 // Hard: a skilled run or a long session
-                Mission("hard_destroy_35", hard, ECCMissionType.DestroyCops, 35, 220, "{0} ماشین پلیس را نابود کن"),
-                Mission("hard_cash_700", hard, ECCMissionType.CollectCash, 210, 220, "{0} دلار از جاده جمع کن"),
-                Mission("hard_survive_150", hard, ECCMissionType.SurviveSeconds, 150, 250, "در یک دور {0} ثانیه دوام بیاور"),
-                Mission("hard_wanted_5", hard, ECCMissionType.ReachWantedLevel, 5, 250, "در مود بی‌نهایت به سطح تعقیب {0} برس"),
-                Mission("hard_earn_400", hard, ECCMissionType.EarnInOneRun, 400, 240, "در یک دور {0} سکه به دست بیاور"),
-                Mission("hard_nearmiss_35", hard, ECCMissionType.NearMisses, 35, 250, "{0} بار از بیخ گوش پلیس یا ماشین‌ها رد شو"),
+                Mission("hard_deliver_35", hard, ECCMissionType.DeliverPassengers, 35, 220, "{0} مسافر رو به مقصد برسون"),
+                Mission("hard_perfect_20", hard, ECCMissionType.PerfectStops, 20, 230, "{0} بار درست وسط دایره ترمز کن"),
+                Mission("hard_vip_3", hard, ECCMissionType.DeliverVips, 3, 250, "{0} مسافر VIP رو برسون"),
+                Mission("hard_shift_12", hard, ECCMissionType.DeliverInOneShift, 12, 250, "در یک شیفت بی‌نهایت {0} مسافر برسون"),
+                Mission("hard_earn_400", hard, ECCMissionType.EarnInOneRun, 400, 240, "در یک دور {0} سکه به دست بیار"),
+                Mission("hard_escape_3", hard, ECCMissionType.EscapePolice, 3, 230, "{0} بار از دست پلیس در برو"),
             };
         }
     }

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using EndlessCarChase.Modes;
 
@@ -119,11 +119,29 @@ namespace EndlessCarChase.Levels
                 case ECCObjectiveType.Heist: return ECCCarTheme.Icon("Icons/gift");
                 case ECCObjectiveType.NoDamage: return ECCCarTheme.Icon("Icons/shield");
                 case ECCObjectiveType.Checkpoints: return ECCCarTheme.Icon("Icons/bolt");
+                case ECCObjectiveType.Passengers:
+                case ECCObjectiveType.CleanRecord: return ECCCarTheme.Icon("Icons/target");
+                case ECCObjectiveType.RaceRivals: return ECCCarTheme.Icon("Icons/trophy");
+                case ECCObjectiveType.Vip: return ECCCarTheme.Icon("Icons/crown");
+                case ECCObjectiveType.Earn: return ECCCoinBalanceButton.DollarSprite;
+                case ECCObjectiveType.PerfectStops: return ECCCarTheme.Icon("Icons/check");
+                case ECCObjectiveType.SmoothRide: return ECCCarTheme.Icon("Icons/heart");
                 default: return ECCCarTheme.Icon("Icons/heart");
             }
         }
 
-        Color GoalColor()
+        static string TaxiUnit(ECCObjectiveType objective)
+        {
+            switch (objective)
+            {
+                case ECCObjectiveType.Vip: return "VIP";
+                case ECCObjectiveType.Earn: return "سکه";
+                case ECCObjectiveType.PerfectStops: return "ترمز عالی";
+                default: return "مسافر";
+            }
+        }
+
+                Color GoalColor()
         {
             switch (levelMode.Level.objective)
             {
@@ -134,6 +152,13 @@ namespace EndlessCarChase.Levels
                 case ECCObjectiveType.Heist: return ECCEscapePoint.LootColor;
                 case ECCObjectiveType.NoDamage: return GuideColor;
                 case ECCObjectiveType.Checkpoints: return ECCEscapePoint.CheckpointColor;
+                case ECCObjectiveType.Passengers:
+                case ECCObjectiveType.CleanRecord: return TaxiColors.Normal;
+                case ECCObjectiveType.RaceRivals: return TaxiColors.Hurry;
+                case ECCObjectiveType.Vip: return TaxiColors.Vip;
+                case ECCObjectiveType.Earn: return CashColor;
+                case ECCObjectiveType.PerfectStops: return TaxiColors.PlayerYellow;
+                case ECCObjectiveType.SmoothRide: return TaxiColors.Family;
                 default: return new Color(1, 0.35f, 0.45f, 1);
             }
         }
@@ -249,6 +274,28 @@ namespace EndlessCarChase.Levels
             ECCLevelData level = levelMode.Level;
 
             goalGauge.fill.fillAmount = Mathf.MoveTowards(goalGauge.fill.fillAmount, levelMode.Progress, Time.deltaTime * 1.5f);
+
+            // Taxi goals: the count and what it counts
+            if (levelMode.IsTaxiLevel)
+            {
+                int count = Mathf.Min(levelMode.TaxiCount, level.target);
+
+                SetNumber(goalGauge.value, count);
+                ECCRuntimeUI.SetText(goalGauge.subValue, "از " + ECCUIKit.PersianDigits(level.target) + " " + TaxiUnit(level.objective));
+
+                if (count > lastCash)
+                {
+                    goalGauge.punch = 1;
+
+                    int left = level.target - count;
+
+                    if (left > 0 && left <= 2 && level.objective != ECCObjectiveType.Earn) ECCHintBanner.Show("Icons/target", GoalColor(), left == 1 ? "فقط یکی دیگه!" : "فقط دو تای دیگه!", "تا پایان مرحله چیزی نمونده", 1.4f, ECCHintBanner.Kind.Minor);
+                }
+
+                lastCash = count;
+
+                return;
+            }
 
             switch (level.objective)
             {

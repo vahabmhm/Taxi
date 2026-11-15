@@ -3,81 +3,81 @@ using UnityEngine;
 namespace EndlessCarChase.Modes
 {
     /// <summary>
-    /// The endless mode: survive as long as possible. The wanted level rises over time, bringing more and faster
-    /// police cars, and a higher score multiplier as a reward.
+    /// The endless mode of the taxi game: an endless shift in the city. The shift clock runs down; every passenger
+    /// brought to their destination adds time to it ( more for a good ride ) and pays the fare. The longer the shift,
+    /// the more rival taxis are on the streets and the more demanding the passengers. The police only come after a
+    /// violation ( TaxiPolice ). The shift ends when the clock runs out or the taxi is wrecked; the record is the
+    /// money earned in one shift.
     /// Add this component to the GameController object to tweak its values, otherwise it's added with the defaults.
     /// </summary>
     public class ECCEndlessMode : ECCGameModeBase
     {
-        [Header("Wanted Level")]
-        [Tooltip("How many seconds of survival raise the wanted level by one")]
-        public float levelUpInterval = 30;
+        [Header("Shift")]
+        [Tooltip("Seconds on the shift clock at the start")]
+        public float startTime = 75;
 
-        [Tooltip("The highest wanted level")]
-        public int maxWantedLevel = 6;
+        [Tooltip("The most seconds the shift clock can hold")]
+        public float maxTime = 150;
 
-        [Tooltip("The time between police spawns is multiplied by this value for every wanted level. Lower is harder")]
-        [Range(0.3f, 1)]
-        public float copSpawnRateFactor = 0.8f;
+        [Tooltip("Seconds added for a delivered passenger, plus the bonus per rating star")]
+        public float timePerDelivery = 8;
+        public float timePerStar = 2;
 
-        [Tooltip("Extra speed added to newly spawned police cars for every wanted level")]
-        public float copSpeedBonusPerLevel = 0.75f;
+        [Tooltip("Extra seconds for a VIP")]
+        public float vipTimeBonus = 12;
 
-        [Tooltip("Multiply the score per second by the wanted level")]
-        public bool multiplyScoreByWantedLevel = true;
+        [Header("Rivals")]
+        [Tooltip("Rival taxis at the start, and the most of them")]
+        public int startRivals = 1;
+        public int maxRivals = 4;
 
-        [Header("Police Variants")]
-        [Tooltip("Chance of an interceptor added per wanted level, starting at level 2")]
-        public float interceptorChancePerLevel = 0.1f;
+        [Tooltip("Seconds of the shift until one more rival taxi joins")]
+        public float rivalInterval = 60;
 
-        [Tooltip("Chance of a rammer added per wanted level, starting at level 3")]
-        public float rammerChancePerLevel = 0.1f;
-
-        [Tooltip("Chance of a heavy car added per wanted level, starting at level 4")]
-        public float heavyChancePerLevel = 0.12f;
-
-        [Header("Hazards")]
-        [Tooltip("The wanted level from which spike strips appear")]
-        public int spikeStripsFromLevel = 3;
-
-        [Tooltip("The wanted level from which roadblocks appear")]
-        public int roadblocksFromLevel = 4;
-
-        [Tooltip("The wanted level at which the police helicopter joins the chase ( searchlight and spike strips )")]
-        public int helicopterFromLevel = 6;
+        [Tooltip("Seconds between two VIP passengers")]
+        public float vipInterval = 70;
 
         [Header("HUD")]
-        [Tooltip("Position of the wanted level HUD, measured from the top center of the screen")]
+        [Tooltip("Position of the shift clock, measured from the top center of the screen")]
         public Vector2 hudPosition = new Vector2(0, -110);
 
-        public int WantedLevel { get; private set; }
+        /// <summary>
+        /// The wanted stars of the taxi ( kept under this name for the missions and the old HUD )
+        /// </summary>
+        public int WantedLevel
+        {
+            get { return TaxiPolice.Instance ? TaxiPolice.Instance.MaxStarsThisRun : 0; }
+        }
 
         /// <summary>
-        /// Progress towards the next wanted level, from 0 to 1
+        /// The shift clock, from 0 ( empty ) to 1 ( full )
         /// </summary>
         public float LevelProgress
         {
-            get { return WantedLevel >= maxWantedLevel ? 1 : Mathf.Clamp01(levelTimer / levelUpInterval); }
+            get { return Mathf.Clamp01(TimeLeft / Mathf.Max(1, maxTime)); }
         }
+
+        public float TimeLeft { get; private set; }
+
+        public float Elapsed { get; private set; }
 
         public override GameModeType ModeType
         {
             get { return GameModeType.Endless; }
         }
 
-        float levelTimer = 0;
-
-        ECCSpawnTuning spawnTuning;
-        ECCHazardSpawner hazards;
-
-        ECCWantedHUD hud;
+        TaxiSession session;
+        TaxiShiftHUD hud;
+        int rivalsJoined;
+        bool lowTimeWarned;
+        bool ended;
 
         public override void Initialize(ECCGameController controller)
         {
             base.Initialize(controller);
 
-            WantedLevel = 1;
-            levelTimer = 0;
+            TimeLeft = startTime;
+            Elapsed = 0;
         }
 
         /// <summary>
@@ -88,57 +88,76 @@ namespace EndlessCarChase.Modes
             return sceneKey;
         }
 
+        /// <summary>
+        /// The passengers of the shift: at first mostly normal ones, then more of the demanding kinds
+        /// </summary>
+        public static TaxiRules ShiftRules(float elapsed, int rivals, float vipInterval)
+        {
+            float harder = Mathf.Clamp01(elapsed / 240);
+
+            return new TaxiRules
+            {
+                waitingPassengers = 6,
+                rivals = rivals,
+                kindWeights = new float[] { 10, Mathf.Lerp(1, 4, harder), 0, Mathf.Lerp(1, 3, harder), Mathf.Lerp(0.5f, 2, harder), Mathf.Lerp(0.5f, 3, harder) },
+                vipInterval = vipInterval,
+                police = true,
+                fareMultiplier = 1,
+            };
+        }
+
         public override void OnGameStarted()
         {
-            // The endless chase drives through the endless city
+            // The taxi drives through the endless city
             ECCCityWorld.Enable(gameController);
 
-            // The same camera distance as chapter 1 in every mode
             ECCCameraFraming.Apply();
 
-            // The endless chase follows the clock: at night ( 19:00 to 6:00 ) the city is dark, with headlights and sirens
+            // The endless shift follows the clock: at night ( 19:00 to 6:00 ) the city is dark, with headlights
             if (ECCNightMode.IsNightTime) ECCNightMode.Enable(gameController);
 
-            ECCSpawnAroundObject spawner = gameController.GetComponent<ECCSpawnAroundObject>();
-            if (spawner) spawnTuning = new ECCSpawnTuning(spawner);
+            // No money for just driving around: the fares are the income
+            gameController.CancelInvoke("ScorePerSecond");
 
-            hazards = gameController.GetComponent<ECCHazardSpawner>();
+            string carName = gameController.playerObject ? gameController.playerObject.name.Replace("(Clone)", string.Empty) : string.Empty;
 
-            ECCSpawnAroundObject.ObjectSpawned += OnObjectSpawned;
+            rivalsJoined = startRivals;
 
-            hud = ECCWantedHUD.Create(gameController, this);
+            session = TaxiSession.Begin(gameController, ShiftRules(0, startRivals, vipInterval), carName);
 
-            ApplyWantedLevel(false);
+            TaxiSession.Delivered += OnDelivered;
+
+            hud = TaxiShiftHUD.Create(gameController, this);
+
+            ECCHintBanner.Show("Icons/clock", ECCCarTheme.CandyBlue, "شیفت شروع شد!", "مسافرها رو سوار کن؛ هر مسافر وقت شیفت رو بیشتر می‌کنه");
         }
 
         void OnDestroy()
         {
-            ECCSpawnAroundObject.ObjectSpawned -= OnObjectSpawned;
+            TaxiSession.Delivered -= OnDelivered;
         }
 
-        /// <summary>
-        /// Higher wanted levels bring tougher police variants
-        /// </summary>
-        void OnObjectSpawned(Transform spawned)
+        void OnDelivered(TaxiCab cab, TaxiPassenger passenger, int fare, int rating, int dropQuality)
         {
-            if (enabled == false) return;
+            if (cab.IsPlayer == false || ended) return;
 
-            ECCCar car = spawned.GetComponent<ECCCar>();
+            float bonus = timePerDelivery + rating * timePerStar + (passenger.kind == TaxiPassengerKind.Vip ? vipTimeBonus : 0);
 
-            if (car == null) return;
+            TimeLeft = Mathf.Min(maxTime, TimeLeft + bonus);
 
-            // Tough enough for the player's car; the wanted level brings tougher variants instead of chapters
-            ECCCopVariant.Toughen(car, 0);
+            if (session) ECCMissions.Report(ECCMissionType.DeliverInOneShift, session.PlayerDeliveries);
 
-            ECCCopVariant.RollAndApply(car,
-                Mathf.Max(0, WantedLevel - 1) * interceptorChancePerLevel,
-                Mathf.Max(0, WantedLevel - 2) * rammerChancePerLevel,
-                Mathf.Max(0, WantedLevel - 3) * heavyChancePerLevel);
+            lowTimeWarned = false;
+
+            if (hud) hud.Punch("+" + ECCUIKit.PersianDigits(Mathf.RoundToInt(bonus)) + " ثانیه");
         }
 
         public override void OnGameOver()
         {
+            ended = true;
+
             if (hud) hud.Hide();
+            if (TaxiHUD.Instance) TaxiHUD.Instance.Hide();
         }
 
         public override bool ShowsOwnResultScreen
@@ -147,17 +166,17 @@ namespace EndlessCarChase.Modes
         }
 
         /// <summary>
-        /// The endless mode result screen ( replaces the old game over canvas ): coins earned, record, wanted level
+        /// The endless mode result screen: money earned, record, passengers and rating
         /// </summary>
         public override void ShowResultScreen(bool victory)
         {
             int score = gameController.score;
+
             bool newRecord = score > gameController.highScore;
 
             if (newRecord)
             {
                 gameController.highScore = score;
-
                 PlayerPrefs.SetInt(gameController.HighScoreKey, score);
                 PlayerPrefs.Save();
             }
@@ -170,43 +189,45 @@ namespace EndlessCarChase.Modes
 
         void Update()
         {
-            if (IsPlaying == false || WantedLevel >= maxWantedLevel) return;
+            if (IsPlaying == false || ended || session == null) return;
 
-            levelTimer += Time.deltaTime;
+            Elapsed += Time.deltaTime;
+            TimeLeft -= Time.deltaTime;
 
-            if (levelTimer >= levelUpInterval)
+            // One more rival now and then; the passengers get more demanding
+            int rivals = Mathf.Min(maxRivals, startRivals + Mathf.FloorToInt(Elapsed / rivalInterval));
+
+            if (rivals != rivalsJoined)
             {
-                levelTimer -= levelUpInterval;
+                rivalsJoined = rivals;
 
-                WantedLevel++;
-
-                ApplyWantedLevel(true);
-            }
-        }
-
-        void ApplyWantedLevel(bool announce)
-        {
-            int extraLevels = WantedLevel - 1;
-
-            // Police spawn faster
-            if (spawnTuning != null) spawnTuning.SetSpawnRateMultiplier(ECCSpawnTuning.GroupKind.Police, Mathf.Pow(copSpawnRateFactor, extraLevels));
-
-            if (hazards)
-            {
-                hazards.spikeStrips = WantedLevel >= spikeStripsFromLevel;
-                hazards.roadblocks = WantedLevel >= roadblocksFromLevel;
+                ECCHintBanner.Show("Icons/target", ECCCarTheme.CandyRed, "یه تاکسی رقیب دیگه اومد!", "حالا " + ECCUIKit.PersianDigits(rivals) + " تاکسی رقیب توی شهرن", 2, ECCHintBanner.Kind.Minor);
             }
 
-            // Police drive faster
-            ECCCar.aiSpeedBonus = extraLevels * copSpeedBonusPerLevel;
+            TaxiRules rules = ShiftRules(Elapsed, rivals, vipInterval);
 
-            // The player gets more score
-            gameController.SetScoreMultiplier(multiplyScoreByWantedLevel ? WantedLevel : 1);
+            session.rules.kindWeights = rules.kindWeights;
+            session.SetRivalCount(rivals);
 
-            if (hud) hud.SetWantedLevel(WantedLevel, gameController.scoreMultiplier, announce);
+            if (lowTimeWarned == false && TimeLeft <= 15)
+            {
+                lowTimeWarned = true;
 
-            // The highest level of the chase: the helicopter
-            if (WantedLevel >= helicopterFromLevel) ECCPoliceHelicopter.Spawn(gameController);
+                ECCHintBanner.Show("Icons/clock", ECCCarTheme.CandyOrange, "شیفت داره تموم می‌شه!", "زود یه مسافر برسون تا وقت بیشتری بگیری", 2.2f, ECCHintBanner.Kind.Urgent);
+            }
+
+            if (TimeLeft <= 0)
+            {
+                TimeLeft = 0;
+                ended = true;
+
+                // Passengers still on board are let out
+                if (session.Player) session.Player.car.throttle = 0;
+
+                ECCToast.Show("پایان شیفت!", ECCRuntimeUI.StarColor, ECCUIKit.PersianDigits(session.PlayerDeliveries) + " مسافر رسوندی", 2);
+
+                gameController.Fail();
+            }
         }
     }
 }

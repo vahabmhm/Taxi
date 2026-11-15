@@ -12,4 +12,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67be3448b7e2a0446ae0dd73467a9d1e, type: 3}
   m_Name: ECCExtraCars
   m_EditorClassIdentifier: Assembly-CSharp::EndlessCarChase.Types.ECCExtraCars
-  items: []
+  items:
+  - itemIcon: {fileID: 8802589640109532711, guid: da8659eb7a23e2443b43ca1b5f3d82dd, type: 3}
+    lockState: 1
+    price: 0
+  - itemIcon: {fileID: 7502584579276385433, guid: 9c16548628b361b469e4b0e3ba5aa041, type: 3}
+    lockState: 0
+    price: 1500
+  - itemIcon: {fileID: 8343894905898113504, guid: 71a17a35c96c2564f94d6cdaf40e1ee9, type: 3}
+    lockState: 0
+    price: 2500
+  - itemIcon: {fileID: 5343172964160553400, guid: 3e1bae795e46a1d46b2f5764839e5275, type: 3}
+    lockState: 0
+    price: 3500
+  - itemIcon: {fileID: 8757103503080257667, guid: 1768122bba099d04d8929648e93871a7, type: 3}
+    lockState: 0
+    price: 5000
+  - itemIcon: {fileID: 6259404091142446993, guid: cea6f7e6223031f4aa2a75d2e4d059f7, type: 3}
+    lockState: 0
+    price: 8000

@@ -2,9 +2,9 @@ using System; using System.Linq; using System.Collections.Generic; using UnityEn
 public static partial class T {
   static void TestMissionCatalog(){
     var all = ECCMissionCatalog.Instance.missions;
-    Check(all.Length==25, "25 missions");
-    Check(all.Count(m=>m.difficulty==ECCMissionDifficulty.Easy)==10 && all.Count(m=>m.difficulty==ECCMissionDifficulty.Medium)==9 && all.Count(m=>m.difficulty==ECCMissionDifficulty.Hard)==6, "10 easy 9 medium 6 hard");
-    Check(all.Select(m=>m.id).Distinct().Count()==25, "unique ids");
+    Check(all.Length==22, "22 taxi missions");
+    Check(all.Count(m=>m.difficulty==ECCMissionDifficulty.Easy)==8 && all.Count(m=>m.difficulty==ECCMissionDifficulty.Medium)==8 && all.Count(m=>m.difficulty==ECCMissionDifficulty.Hard)==6, "8 easy 8 medium 6 hard");
+    Check(all.Select(m=>m.id).Distinct().Count()==all.Length, "unique ids");
     Check(all.All(ECCMissions.IsAvailable), "all achievable");
     Check(all.All(m=>m.reward>0 && m.Text.Contains(m.target.ToString())), "text has target, reward set");
   }

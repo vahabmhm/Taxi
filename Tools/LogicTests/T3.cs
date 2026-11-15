@@ -8,9 +8,9 @@ public static partial class T {
     for (int d=0; d<40; d++) for (int tier=0; tier<3; tier++){
       var l = ECCDailyChallenge.Generate(new DateTime(2026,1,1).AddDays(d).ToString("yyyy-MM-dd"), tier);
       objectives.Add(l.objective);
-      if (!(l.timeLimit>0 && l.target>0 && l.objective!=ECCObjectiveType.Survive && l.objective!=ECCObjectiveType.DestroyBoss && (int)l.theme>=1 && (int)l.theme<=tier+1 && l.reward>0)) { Check(false,"valid challenge d"+d+" t"+tier); return; }
+      if (!(l.timeLimit>0 && l.target>0 && l.objective!=ECCObjectiveType.Survive && l.objective!=ECCObjectiveType.DestroyBoss && (l.theme==ECCLevelTheme.City || l.theme==ECCLevelTheme.Rain) && ECCObjectives.IsTaxi(l.objective) && l.reward>0)) { Check(false,"valid challenge d"+d+" t"+tier); return; }
     }
-    Check(objectives.Count==3, "all three timed objectives occur");
+    Check(objectives.Count==4, "all four taxi objectives occur");
     Check(ECCDailyChallenge.Today.title=="چالش روز", "challenge title");
     var today = ECCDailyChallenge.Today; ECCSave.Data.levels.Add(new ECCLevelRecord{id="c1-l1",stars=3}); Restart(); typeof(ECCDailyChallenge).GetField("cachedLevel",BindingFlags.NonPublic|BindingFlags.Static).SetValue(null,null);
     Check(ECCDailyChallenge.Today.target==today.target && ECCDailyChallenge.Today.objective==today.objective, "challenge stable through restart");

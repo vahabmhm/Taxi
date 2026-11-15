@@ -135,6 +135,15 @@ namespace EndlessCarChase
                 shopMenu.AddExtraItems();
 
                 //Get the number of the current item
+                // Taxi: a new player starts in the yellow taxi
+                if (PlayerPrefs.HasKey(shopMenu.currentPlayerprefs) == false)
+                {
+                    for (int item = 0; item < shopMenu.items.Length; item++)
+                    {
+                        if (shopMenu.items[item] != null && shopMenu.items[item].itemIcon && shopMenu.items[item].itemIcon.name == "Kenney_Taxi") shopMenu.currentItem = item;
+                    }
+                }
+
                 shopMenu.currentItem = PlayerPrefs.GetInt(shopMenu.currentPlayerprefs, shopMenu.currentItem);
                 // A removed car may have been the selected one: back to the first car ( always owned )
                 if (shopMenu.currentItem < 0 || shopMenu.currentItem >= shopMenu.items.Length) shopMenu.currentItem = 0;
@@ -273,7 +282,7 @@ namespace EndlessCarChase
 
             // The first-run tutorial, the endless record line and the trial of a locked car
             ECCTutorial.StartIfNeeded(this);
-            ECCRecordLine.StartIfEndless(this);
+            // ( taxi: the endless record is the money of a shift, not the distance, so there is no record line )
             ECCCarTrial.OnRunStarted(this);
         }
 
