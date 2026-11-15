@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace EndlessCarChase.Levels
@@ -196,6 +196,15 @@ namespace EndlessCarChase.Levels
         /// The built-in levels
         /// </summary>
         public static ECCChapterData[] CreateDefaultChapters()
+        {
+            // The taxi game's levels ( TaxiLevels ); the chase levels below are kept for reference
+            return TaxiLevels.CreateChapters();
+        }
+
+        /// <summary>
+        /// The police chase levels of the original game ( not used by the taxi game )
+        /// </summary>
+        public static ECCChapterData[] CreateChaseChapters()
         {
             ECCChapterData city = new ECCChapterData
             {

@@ -16,4 +16,4 @@ for def in NONE UNITY_ADS UNITY_ANDROID; do
   mcs -target:library -langversion:7 -define:$def -nowarn:0169,0649,0414,0067,0618,0219 -r:"$OUT/UnityEngine.dll" -out:"$OUT/Game.dll" @"$OUT/files.txt"
 done
 mcs -langversion:7 -nowarn:0219,0169,0649,0414,0067,0618 -r:"$OUT/UnityEngine.dll" -r:System.Xml.dll -r:System.Runtime.Serialization.dll -out:"$OUT/T.exe" @"$OUT/files.txt" T*.cs
-cd "$OUT" && mono T.exe
+cd "$OUT" && ECC_ROOT="${ECC_ROOT:-$ROOT}" mono T.exe

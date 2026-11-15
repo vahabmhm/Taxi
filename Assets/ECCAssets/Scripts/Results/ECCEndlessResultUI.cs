@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace EndlessCarChase
@@ -25,22 +25,31 @@ namespace EndlessCarChase
         {
             if (open) return;
 
-            ECCResultCard card = ECCResultCard.Create("CanvasEndlessResult", 80, "تعقیب بی‌نهایت", ECCCarTheme.CandyOrange);
+            ECCResultCard card = ECCResultCard.Create("CanvasEndlessResult", 80, "شیفت بی‌نهایت", ECCCarTheme.CandyOrange);
 
             ECCEndlessResultUI ui = card.Panel.gameObject.AddComponent<ECCEndlessResultUI>();
             ui.gameController = gameController;
             open = ui;
 
             card.Badge("Icons/crown", newRecord ? ECCCarTheme.Hex(0xFFB020) : ECCCarTheme.Hex(0x8E5CF7), newRecord);
-            card.Title(newRecord ? "رکورد جدید!" : "پایان تعقیب!", newRecord ? ECCCarTheme.CandyGreenShade : ECCCarTheme.CandyRed, 46);
+            card.Title(newRecord ? "رکورد جدید!" : "پایان شیفت!", newRecord ? ECCCarTheme.CandyGreenShade : ECCCarTheme.CandyRed, 46);
 
-            card.Stars(5, wantedLevel, 46);
-            card.Line("سطح تعقیب: " + ECCUIKit.PersianDigits(wantedLevel) + " از ۵", 20, 30);
+            // Taxi: the passengers' average rating, the passengers and the fines of the shift
+            TaxiSession session = TaxiSession.Instance;
+            TaxiPolice police = TaxiPolice.Instance;
 
-            card.MoneyPill("پول این دور", score);
+            int delivered = session ? session.PlayerDeliveries : 0;
+            int rating = session ? Mathf.RoundToInt(session.AverageRating) : 0;
 
-            if (newRecord) card.InfoBox("Icons/trophy", ECCCarTheme.Hex(0xFFB020), "رکورد تازه‌ی تو: " + ECCUIKit.PersianDigits(highScore) + " دلار", 66);
-            else card.InfoBox("Icons/trophy", ECCCarTheme.CandyBlue, "رکورد: " + ECCUIKit.PersianDigits(highScore) + " دلار · " + ECCUIKit.PersianDigits(Mathf.Max(0, highScore - score + 1)) + " دلار تا رکورد جدید", 66);
+            card.Stars(5, rating, 46);
+            card.Line("مسافر: " + ECCUIKit.PersianDigits(delivered) + " · توقف عالی: " + ECCUIKit.PersianDigits(session ? session.PerfectStops : 0), 22, 32);
+
+            if (police && police.TotalFined > 0) card.Line("جریمه‌ی پلیس: " + ECCUIKit.PersianDigits(police.TotalFined) + " سکه", 20, 30, ECCCarTheme.CandyRed);
+
+            card.MoneyPill("درآمد این شیفت", score);
+
+            if (newRecord) card.InfoBox("Icons/trophy", ECCCarTheme.Hex(0xFFB020), "رکورد تازه‌ی تو: " + ECCUIKit.PersianDigits(highScore) + " سکه", 66);
+            else card.InfoBox("Icons/trophy", ECCCarTheme.CandyBlue, "رکورد: " + ECCUIKit.PersianDigits(highScore) + " سکه · " + ECCUIKit.PersianDigits(Mathf.Max(0, highScore - score + 1)) + " سکه تا رکورد جدید", 66);
 
             card.Space(4);
 

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace EndlessCarChase
@@ -22,11 +22,11 @@ namespace EndlessCarChase
         static readonly Step[] Steps =
         {
             new Step { icon = "SteeringIcon", title = "فرمان دست توئه!", text = "فرمان پایین صفحه رو به چپ و راست بکش تا ماشین بپیچه", maxTime = 6 },
-            new Step { icon = "Icons/fire", title = "پلیس‌ها رو نابود کن", text = "پلیس‌ها رو به هم، به ساختمون‌ها یا به میخ‌ها بکوبون", maxTime = 7 },
-            new Step { icon = "dollar", title = "دلارها رو جمع کن", text = "از روی دلارهای جاده رد شو؛ با پولش ماشین بخر و ارتقا بده", maxTime = 7 },
-            new Step { icon = "Icons/bolt", title = "از بیخ گوش رد شو", text = "خیلی نزدیک از کنار پلیس یا ماشین‌ها رد شو تا سکه‌ی اضافه بگیری", maxTime = 7 },
-            new Step { icon = "Icons/shield", title = "قدرت‌های ویژه", text = "وقتی گیر افتادی، از دکمه‌های قدرت ویژه‌ی پایین صفحه کمک بگیر", maxTime = 5 },
-            new Step { icon = "Icons/star", title = "آفرین، آماده‌ای!", text = "حالا تا می‌تونی از دست پلیس فرار کن", maxTime = 2.5f },
+            new Step { icon = "Icons/lock", title = "ترمز کن!", text = "دکمه‌ی قرمز ترمز رو نگه دار تا ماشین وایسه؛ ولش کنی دوباره راه می‌افته", maxTime = 9 },
+            new Step { icon = "Icons/target", title = "مسافر سوار کن", text = "جلوی آدم‌های کنار خیابون، داخل دایره‌ی رنگی ترمز کن و وایسا", maxTime = 14 },
+            new Step { icon = "Icons/check", title = "به مقصد برسون", text = "دنبال فلش برو و توی دایره‌ی مقصد وایسا تا کرایه بگیری", maxTime = 14 },
+            new Step { icon = "Icons/shield", title = "مراقب پلیس باش", text = "چراغ قرمز، تصادف و خلاف جهت جریمه داره و پلیس دنبالت می‌کنه", maxTime = 6 },
+            new Step { icon = "Icons/star", title = "آفرین، آماده‌ای!", text = "حالا زودتر از تاکسی‌های رقیب مسافرها رو سوار کن", maxTime = 2.5f },
         };
 
         const int SteerStep = 0, CopsStep = 1, CashStep = 2, NearMissStep = 3;
@@ -94,6 +94,8 @@ namespace EndlessCarChase
             ECCCar.CarDestroyed += OnCarDestroyed;
             ECCItem.Collected += OnItemCollected;
             ECCComboSystem.NearMiss += OnNearMiss;
+            TaxiSession.PickedUp += OnTaxiPickedUp;
+            TaxiSession.Delivered += OnTaxiDelivered;
 
             Build();
             ShowStep();
@@ -104,6 +106,8 @@ namespace EndlessCarChase
             ECCCar.CarDestroyed -= OnCarDestroyed;
             ECCItem.Collected -= OnItemCollected;
             ECCComboSystem.NearMiss -= OnNearMiss;
+            TaxiSession.PickedUp -= OnTaxiPickedUp;
+            TaxiSession.Delivered -= OnTaxiDelivered;
 
             if (canvas) Destroy(canvas.gameObject);
         }
@@ -192,6 +196,11 @@ namespace EndlessCarChase
 
             if (step == SteerStep) TrackSteering();
 
+            // Taxi: the brake step ends when the taxi stood still with the brake held
+            TaxiDriver driver = TaxiDriver.Instance;
+
+            if (step == CopsStep && driver && driver.IsBraking && driver.IsStopped && stepTime > 1.5f) NextStep();
+
             if (stepTime >= Steps[step].maxTime) NextStep();
         }
 
@@ -231,17 +240,28 @@ namespace EndlessCarChase
 
         void OnCarDestroyed(ECCCar car)
         {
-            if (step == CopsStep && car && car.IsPlayer == false && stepTime > 1.5f) NextStep();
+            // ( taxi: this step ends with a taxi event instead )
+        }
+
+        // Taxi: the pickup and the drop-off steps end with the real thing
+        void OnTaxiPickedUp(TaxiCab cab, TaxiPassenger passenger)
+        {
+            if (step == CashStep && cab && cab.IsPlayer) NextStep();
+        }
+
+        void OnTaxiDelivered(TaxiCab cab, TaxiPassenger passenger, int fare, int rating, int quality)
+        {
+            if (step == NearMissStep && cab && cab.IsPlayer) NextStep();
         }
 
         void OnItemCollected(ECCItem item)
         {
-            if (step == CashStep && item && item.CashValue > 0 && stepTime > 1.5f) NextStep();
+            // ( taxi: this step ends with a taxi event instead )
         }
 
         void OnNearMiss()
         {
-            if (step == NearMissStep && stepTime > 1.5f) NextStep();
+            // ( taxi: this step ends with a taxi event instead )
         }
 
         /// <summary>

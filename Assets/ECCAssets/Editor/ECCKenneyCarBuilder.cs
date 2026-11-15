@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using EndlessCarChase.Types;
@@ -100,7 +100,11 @@ namespace EndlessCarChase.EditorTools
             {
                 GameObject car = BuildCar(spec, material);
 
-                if (car) items.Add(new ShopItem { itemIcon = car.transform, lockState = 0, price = spec.price });
+                // Taxi game: the yellow taxi is the free starting car, listed first
+                bool taxi = spec.prefab == "Kenney_Taxi";
+
+                if (car && taxi) items.Insert(0, new ShopItem { itemIcon = car.transform, lockState = 1, price = 0 });
+                else if (car) items.Add(new ShopItem { itemIcon = car.transform, lockState = 0, price = spec.price });
             }
 
             ECCExtraCars extras = AssetDatabase.LoadAssetAtPath<ECCExtraCars>(ExtraCarsPath);

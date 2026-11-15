@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using EndlessCarChase.Levels;
 
 namespace EndlessCarChase
@@ -73,13 +73,14 @@ namespace EndlessCarChase
 
         /// <summary>
         /// Builds a timed challenge for a day. Only objectives that are always possible from the start are used
-        /// ( destroy police, collect money, escape ), with the content of chapters the player already reached
+        /// ( passengers, fares, perfect stops, a race ), harder for players who finished more levels
         /// </summary>
         public static ECCLevelData Generate(string day, int tier)
         {
             System.Random random = new System.Random(ECCDaily.Seed(day, "challenge"));
 
-            ECCObjectiveType[] objectives = { ECCObjectiveType.DestroyCops, ECCObjectiveType.CollectCash, ECCObjectiveType.Escape };
+            // Taxi goals that are always possible from the start
+            ECCObjectiveType[] objectives = { ECCObjectiveType.Passengers, ECCObjectiveType.Earn, ECCObjectiveType.PerfectStops, ECCObjectiveType.RaceRivals };
 
             ECCLevelData level = new ECCLevelData();
             level.title = "چالش روز";
@@ -88,33 +89,37 @@ namespace EndlessCarChase
 
             tier = Mathf.Clamp(tier, 0, 2);
 
+            level.rivals = 1 + tier;
+            level.passengerMix = 0.2f + tier * 0.25f;
+
             switch (level.objective)
             {
-                case ECCObjectiveType.DestroyCops:
-                    level.target = 10 + tier * 4 + random.Next(3);
-                    level.timeLimit = 130;
+                case ECCObjectiveType.Passengers:
+                    level.target = 4 + tier * 2 + random.Next(2);
+                    level.timeLimit = 60 + level.target * 36;
                     break;
 
-                case ECCObjectiveType.CollectCash:
-                    level.target = 35 + tier * 25 + random.Next(3) * 5;
-                    level.timeLimit = 100;
+                case ECCObjectiveType.Earn:
+                    level.target = 150 + tier * 120 + random.Next(3) * 20;
+                    level.timeLimit = 70 + level.target;
+                    break;
+
+                case ECCObjectiveType.PerfectStops:
+                    level.target = 3 + tier * 2;
+                    level.timeLimit = 80 + level.target * 28;
                     break;
 
                 default:
-                    level.target = 280 + tier * 100 + random.Next(3) * 20;
-                    level.timeLimit = 70 + tier * 10;
+                    level.target = 4 + tier;
+                    level.timeLimit = 60 + level.target * 45;
                     break;
             }
 
-            level.copSpawnMultiplier = 1.1f - tier * 0.1f;
-            level.copSpeedBonus = tier * 0.5f;
-            level.interceptorChance = tier >= 1 ? 0.15f : 0;
-            level.rammerChance = tier >= 2 ? 0.15f : 0;
-            level.spikeStrips = tier >= 1 && random.Next(2) == 0;
+            // The city by day, or ( for the experienced ) at night or in the rain
+            int look = random.Next(tier + 1);
 
-            // A theme from a chapter the player already reached
-            int chapters = Mathf.Clamp(tier + 1, 1, 3);
-            level.theme = (ECCLevelTheme)(1 + random.Next(chapters));
+            level.theme = look == 2 ? ECCLevelTheme.Rain : ECCLevelTheme.City;
+            level.night = look == 1;
 
             level.id = "challenge-" + day;
             level.chapterIndex = 0;

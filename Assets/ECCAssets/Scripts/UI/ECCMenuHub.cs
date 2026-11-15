@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -196,11 +196,11 @@ namespace EndlessCarChase
 
             Vector2 topCenter = new Vector2(0.5f, 1);
 
-            Text title = ECCRuntimeUI.CreateText("Title", column, "تعقیب پلیس", 64, topCenter, new Vector2(0, -6), new Vector2(620, 84), Color.white);
+            Text title = ECCRuntimeUI.CreateText("Title", column, "تاکسی شهر", 64, topCenter, new Vector2(0, -6), new Vector2(620, 84), Color.white);
             ECCCarTheme.CandyLabel(title);
             title.rectTransform.pivot = topCenter;
 
-            subtitle = ECCRuntimeUI.CreateText("Subtitle", column, "از دست پلیس فرار کن!", 24, topCenter, new Vector2(0, -88), new Vector2(620, 36), ECCCarTheme.NightText);
+            subtitle = ECCRuntimeUI.CreateText("Subtitle", column, "مسافر سوار کن، از رقیب‌ها جلو بزن!", 24, topCenter, new Vector2(0, -88), new Vector2(620, 36), ECCCarTheme.NightText);
             subtitle.rectTransform.pivot = topCenter;
             subtitle.GetComponent<Outline>().enabled = false;
 

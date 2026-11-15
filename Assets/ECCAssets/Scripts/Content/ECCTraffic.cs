@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace EndlessCarChase
@@ -14,10 +14,10 @@ namespace EndlessCarChase
     public class ECCTraffic : MonoBehaviour
     {
         [Tooltip("The most traffic cars at the same time")]
-        public int maxCars = 8;
+        public int maxCars = 20;
 
         [Tooltip("Seconds between two new traffic cars")]
-        public float spawnInterval = 1.4f;
+        public float spawnInterval = 0.5f;
 
         [Tooltip("Distance from the player at which traffic cars appear ( out of view )")]
         public Vector2 spawnDistance = new Vector2(55, 75);
@@ -52,8 +52,28 @@ namespace EndlessCarChase
         {
             public Transform transform;
             public float speed;
+            public float cruiseSpeed;
             public float radius;
+            public float honkTime;
         }
+
+        [Header("Taxi")]
+        [Tooltip("How quickly the traffic slows down for a red light or a car ahead")]
+        public float brakeRate = 14;
+
+        [Tooltip("How quickly the traffic speeds up again")]
+        public float accelerateRate = 5;
+
+        [Tooltip("The gap the traffic keeps to the car ahead")]
+        public float followGap = 2.5f;
+
+        [Tooltip("A player car slower than this only bumps a traffic car, it doesn't crash")]
+        public float softBumpSpeed = 4.5f;
+
+        /// <summary>
+        /// Called when the player's car crashes into a traffic car ( a violation, see TaxiPolice )
+        /// </summary>
+        public static event System.Action<ECCCar> PlayerCrashed;
 
         /// <summary>
         /// The traffic of the current run, or null
@@ -117,6 +137,11 @@ namespace EndlessCarChase
                     continue;
                 }
 
+                // Stop at red lights and behind the car ahead, then speed up again
+                float wanted = MustWait(car, index) ? 0 : car.cruiseSpeed;
+
+                car.speed = Mathf.MoveTowards(car.speed, wanted, (wanted < car.speed ? brakeRate : accelerateRate) * Time.deltaTime);
+
                 car.transform.position += car.transform.forward * car.speed * Time.deltaTime;
 
                 if (gameController.playerObject && ECCRuntimeVisuals.FlatDistance(car.transform.position, player) > removeDistance)
@@ -142,6 +167,66 @@ namespace EndlessCarChase
             }
         }
 
+        // ----- Lights and queues -----
+
+        /// <summary>
+        /// Should this traffic car stop: a red or yellow light just ahead, or a car ( traffic, taxi, police ) close
+        /// ahead in its lane
+        /// </summary>
+        bool MustWait(TrafficCar car, int self)
+        {
+            Vector3 position = car.transform.position;
+            Vector3 forward = car.transform.forward;
+
+            // The distance it needs to stop, plus a little
+            float stopDistance = car.speed * car.speed / (2 * brakeRate) + car.radius + 1;
+
+            float lineDistance;
+
+            if (ECCHighwayWorld.IsActive == false && TaxiTrafficLights.Instance && TaxiTrafficLights.Instance.MustStopAhead(position + forward * car.radius, forward, Mathf.Max(3, stopDistance), out lineDistance)) return true;
+
+            Vector3 right = TaxiCity.Right(forward);
+
+            for (int index = 0; index < cars.Count; index++)
+            {
+                if (index == self || cars[index].transform == null) continue;
+
+                if (IsAhead(position, forward, right, cars[index].transform.position, car.radius + cars[index].radius + followGap + stopDistance * 0.5f)) return true;
+            }
+
+            for (int index = 0; index < ECCCar.ActiveCars.Count; index++)
+            {
+                ECCCar other = ECCCar.ActiveCars[index];
+
+                if (other == null || other.health <= 0) continue;
+
+                if (IsAhead(position, forward, right, other.transform.position, car.radius + CarRadius(other) + followGap + stopDistance * 0.5f))
+                {
+                    // Honk at a taxi that blocks the street
+                    if (other.IsPlayer && car.honkTime <= Time.time)
+                    {
+                        car.honkTime = Time.time + 6;
+
+                        TaxiAudio.Honk(car.transform.position, 0.35f);
+                    }
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        static bool IsAhead(Vector3 position, Vector3 forward, Vector3 right, Vector3 other, float gap)
+        {
+            Vector3 offset = other - position;
+            offset.y = 0;
+
+            float ahead = Vector3.Dot(offset, forward);
+
+            return ahead > 0 && ahead < gap && Mathf.Abs(Vector3.Dot(offset, right)) < 1.8f;
+        }
+
         // ----- Crashes -----
 
         void CheckCrashes()
@@ -161,6 +246,13 @@ namespace EndlessCarChase
 
                     if (ECCRuntimeVisuals.FlatDistance(traffic.transform.position, car.transform.position) > reach) continue;
 
+                    // A slow car only bumps it: both are pushed apart, nothing breaks
+                    if (car.CurrentSpeed < softBumpSpeed)
+                    {
+                        Bump(traffic, car, reach);
+                        continue;
+                    }
+
                     Crash(traffic, car);
                     cars.RemoveAt(index);
 
@@ -176,8 +268,22 @@ namespace EndlessCarChase
             return box ? Mathf.Max(box.size.x, box.size.z) * 0.4f : 1.2f;
         }
 
+        void Bump(TrafficCar traffic, ECCCar car, float reach)
+        {
+            Vector3 away = car.transform.position - traffic.transform.position;
+            away.y = 0;
+
+            if (away.sqrMagnitude < 0.0001f) away = -car.transform.forward;
+
+            float overlap = reach - away.magnitude;
+
+            if (overlap > 0) car.transform.position += away.normalized * overlap;
+        }
+
         void Crash(TrafficCar traffic, ECCCar car)
         {
+            if (car.IsPlayer && PlayerCrashed != null) PlayerCrashed(car);
+
             Vector3 position = traffic.transform.position;
 
             // The traffic car explodes, with the explosion of the car that hit it
@@ -227,10 +333,13 @@ namespace EndlessCarChase
 
             ECCCarShadow.Create(root.transform, footprint);
 
+            float cruise = ECCHighwayWorld.IsActive ? Random.Range(highwaySpeedRange.x, highwaySpeedRange.y) : Random.Range(speedRange.x, speedRange.y);
+
             cars.Add(new TrafficCar
             {
                 transform = root.transform,
-                speed = ECCHighwayWorld.IsActive ? Random.Range(highwaySpeedRange.x, highwaySpeedRange.y) : Random.Range(speedRange.x, speedRange.y),
+                speed = cruise,
+                cruiseSpeed = cruise,
                 radius = Mathf.Max(footprint.x, footprint.y) * 0.4f,
             });
         }

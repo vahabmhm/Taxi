@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 namespace EndlessCarChase.Levels
@@ -16,6 +16,15 @@ namespace EndlessCarChase.Levels
         Heist = 5,        // «دزدی و فرار»: pick up the bag of money, then reach the escape point [target] meters away
         NoDamage = 6,     // «با کمترین خسارت تا انتها»: reach the destination [target] meters away with the car's health above ECCLevelMode.MinHealthPercent
         Checkpoints = 7,  // «چک‌پوینت‌ها»: pass [target] checkpoints in a row; each one adds time to the clock
+
+        // ----- Taxi -----
+        Passengers = 8,   // «مسافرکشی»: bring [target] passengers to their destinations
+        RaceRivals = 9,   // «رقابت»: be the first taxi to bring [target] passengers ( before every rival )
+        Vip = 10,         // «مسافر VIP»: bring [target] VIP passengers; if the rivals take two VIPs first, the level is lost
+        Earn = 11,        // «درآمد»: earn [target] coins with fares
+        PerfectStops = 12,// «ترمز دقیق»: make [target] perfect stops ( in the middle of the ring )
+        CleanRecord = 13, // «رانندگی قانونی»: bring [target] passengers without a single violation
+        SmoothRide = 14,  // «سفر آرام»: bring [target] passengers; a ride with 2 stars or less loses the level
     }
 
     /// <summary>
@@ -87,6 +96,17 @@ namespace EndlessCarChase.Levels
         [Tooltip("The police helicopter chases the player ( searchlight, spike strips dropped ahead )")]
         public bool helicopter = false;
 
+        [Header("Taxi")]
+        [Tooltip("Rival taxis in the city")]
+        public int rivals = 2;
+
+        [Tooltip("A VIP passenger appears every this many seconds ( 0: never, VIP levels always have them )")]
+        public float vipInterval = 0;
+
+        [Tooltip("How demanding the passengers are, 0 ( mostly normal ) to 1 ( many hurry, grumpy and tourist passengers )")]
+        [Range(0, 1)]
+        public float passengerMix = 0;
+
         [Header("Look")]
         [Tooltip("The level is played at night: headlights, siren lights and a dark sky")]
         public bool night = false;
@@ -115,6 +135,13 @@ namespace EndlessCarChase.Levels
                     case ECCObjectiveType.Heist: description = "کیف پول را بردار و به نقطه‌ی فرار برسان"; break;
                     case ECCObjectiveType.NoDamage: description = target + " متر تا مقصد برو؛ سلامتی ماشین زیر " + Modes.ECCLevelMode.MinHealthPercent + "٪ نیاید"; break;
                     case ECCObjectiveType.Checkpoints: description = "از " + target + " چک‌پوینت پشت سر هم رد شو"; break;
+                    case ECCObjectiveType.Passengers: description = target + " مسافر رو به مقصد برسون"; break;
+                    case ECCObjectiveType.RaceRivals: description = "زودتر از تاکسی‌های رقیب " + target + " مسافر برسون"; break;
+                    case ECCObjectiveType.Vip: description = target + " مسافر VIP رو قبل از رقیب‌ها برسون"; break;
+                    case ECCObjectiveType.Earn: description = target + " سکه کرایه دربیار"; break;
+                    case ECCObjectiveType.PerfectStops: description = target + " بار درست وسط دایره ترمز کن"; break;
+                    case ECCObjectiveType.CleanRecord: description = target + " مسافر برسون، بدون هیچ تخلفی"; break;
+                    case ECCObjectiveType.SmoothRide: description = target + " مسافر برسون؛ هیچ مسافری ناراضی نشه"; break;
                     default: description = target + " ثانیه زنده بمان"; break;
                 }
 
@@ -160,6 +187,14 @@ namespace EndlessCarChase.Levels
         public static bool UsesDestination(ECCObjectiveType objective)
         {
             return objective == ECCObjectiveType.Escape || objective == ECCObjectiveType.Heist || objective == ECCObjectiveType.NoDamage || objective == ECCObjectiveType.Checkpoints;
+        }
+
+        /// <summary>
+        /// The taxi goals ( passengers, rivals, fares ), played with TaxiSession
+        /// </summary>
+        public static bool IsTaxi(ECCObjectiveType objective)
+        {
+            return objective >= ECCObjectiveType.Passengers;
         }
     }
 

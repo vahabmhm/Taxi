@@ -4,32 +4,32 @@ using System; using System.Linq; using System.Reflection; using UnityEngine; usi
 public static partial class T {
   static void TestAchievementsCountAndClaimOnce(){
     PlayerPrefs.SetInt("Money",0);
-    var cops100 = ECCAchievements.All.First(a=>a.id=="cops_100");
-    ECCMissions.Report(ECCMissionType.DestroyCops, 60);
-    ECCMissions.Report(ECCMissionType.DestroyCops, 39);
-    Check(ECCAchievements.GetValue(ECCStat.DestroyCops)==99 && !ECCAchievements.CanClaim(cops100), "achievement counts through the mission reports, not done at 99");
+    var cops100 = ECCAchievements.All.First(a=>a.id=="passengers_50");
+    ECCMissions.Report(ECCMissionType.DeliverPassengers, 30);
+    ECCMissions.Report(ECCMissionType.DeliverPassengers, 19);
+    Check(ECCAchievements.GetValue(ECCStat.DeliverPassengers)==49 && !ECCAchievements.CanClaim(cops100), "achievement counts through the mission reports, not done at 49");
     Restart();
-    ECCMissions.Report(ECCMissionType.DestroyCops, 1);
-    Check(ECCAchievements.GetValue(ECCStat.DestroyCops)==100 && ECCAchievements.CanClaim(cops100) && ECCAchievements.ClaimableCount>=1, "progress kept after restart, ready at 100");
+    ECCMissions.Report(ECCMissionType.DeliverPassengers, 1);
+    Check(ECCAchievements.GetValue(ECCStat.DeliverPassengers)==50 && ECCAchievements.CanClaim(cops100) && ECCAchievements.ClaimableCount>=1, "progress kept after restart, ready at 50");
     Check(ECCAchievements.Claim(cops100)==cops100.reward && ECCWallet.Balance==cops100.reward, "reward paid");
     Check(ECCAchievements.Claim(cops100)==0 && ECCWallet.Balance==cops100.reward, "second claim refused");
     Restart();
     Check(ECCAchievements.IsClaimed(cops100) && ECCAchievements.Claim(cops100)==0 && ECCWallet.Balance==cops100.reward, "claimed state survives restart");
-    ECCAchievements.Report(ECCStat.SurviveSeconds, 120); ECCAchievements.Report(ECCStat.SurviveSeconds, 60);
-    Check(ECCAchievements.GetValue(ECCStat.SurviveSeconds)==120, "best-value achievements keep the best");
+    ECCAchievements.Report(ECCStat.DeliverInOneShift, 12); ECCAchievements.Report(ECCStat.DeliverInOneShift, 6);
+    Check(ECCAchievements.GetValue(ECCStat.DeliverInOneShift)==12, "best-value achievements keep the best");
     ECCSave.Data.levels.Add(new ECCLevelRecord{id="x1",stars=3}); ECCSave.Data.levels.Add(new ECCLevelRecord{id="x2",stars=2});
     Check(ECCAchievements.GetValue(ECCStat.TotalStars)==5, "total stars read from the level progress");
-    Check(ECCAchievements.All.Select(a=>a.id).Distinct().Count()==ECCAchievements.All.Length && ECCAchievements.All.Any(a=>a.stat==ECCStat.DestroyCops && a.target==1000), "unique ids, includes 1000 police");
+    Check(ECCAchievements.All.Select(a=>a.id).Distinct().Count()==ECCAchievements.All.Length && ECCAchievements.All.Any(a=>a.stat==ECCStat.DeliverPassengers && a.target==1000), "unique ids, includes 1000 passengers");
   }
   static void TestAchievementsScreen(){
-    ECCMissions.Report(ECCMissionType.NearMisses, 50);
+    ECCMissions.Report(ECCMissionType.PerfectStops, 50);
     ECCAchievementsUI.Open();
     var root = UnityEngine.Object.FindAllRoots().Last(t=>t.gameObject.name=="CanvasAchievements");
     string texts = Texts(root);
     Check(texts.Contains(ECCPersianText.Fix("دستاوردها")) && texts.Contains(ECCPersianText.Fix("دریافت جایزه")) && texts.Contains(ECCPersianText.Fix("در حال انجام")), "achievements screen: title and states");
     int before = ECCWallet.Balance;
     var claim = FindAll<Button>(root,"Claim").First(b=>b.interactable); claim.onClick.Invoke(); claim.onClick.Invoke();
-    Check(ECCWallet.Balance==before+ECCAchievements.All.First(a=>a.id=="nearmiss_50").reward, "claimed once from the screen");
+    Check(ECCWallet.Balance==before+ECCAchievements.All.First(a=>a.id=="perfect_50").reward, "claimed once from the screen");
   }
   static void TestStarChests(){
     PlayerPrefs.SetInt("Money",0);
@@ -90,13 +90,18 @@ public static partial class T {
   static void TestCatalogNewGoals(){
     var catalog = ECCLevelCatalog.Instance;
     var all = catalog.chapters.SelectMany(c=>c.levels).ToList();
-    Check(all.Any(l=>l.objective==ECCObjectiveType.Heist) && all.Any(l=>l.objective==ECCObjectiveType.NoDamage) && all.Any(l=>l.objective==ECCObjectiveType.Checkpoints), "heist, no-damage and checkpoint levels exist");
-    Check(catalog.chapters[0].levels.Any(l=>l.objective==ECCObjectiveType.Heist), "a heist already in chapter 1");
-    Check(all.Where(l=>l.objective==ECCObjectiveType.Checkpoints).All(l=>l.timeLimit>0 && l.target>=4), "checkpoint levels have a clock and 4+ checkpoints");
-    Check(all.Where(l=>l.objective==ECCObjectiveType.NoDamage).All(l=>!l.spikeStrips && !l.roadblocks && !l.helicopter), "no-damage levels have no traps");
-    Check(all.Any(l=>l.night) && all.Where(l=>l.night).All(l=>l.theme!=ECCLevelTheme.Rain), "night levels exist ( not on the rainy road )");
-    Check(all.Any(l=>l.helicopter), "helicopter levels exist");
-    Check(all.Where(l=>l.objective==ECCObjectiveType.CollectCash).All(l=>l.target<=300 && l.target>=30), "collect-money goals fit the 5 and 10 dollar pickups");
+    // Taxi game: every level is a taxi goal in the city ( by day, at night or in the rain )
+    Check(all.All(l=>ECCObjectives.IsTaxi(l.objective)), "every level is a taxi level");
+    Check(all.All(l=>l.theme==ECCLevelTheme.City || l.theme==ECCLevelTheme.Rain), "every level is in the city");
+    foreach (var kind in new[]{ECCObjectiveType.Passengers,ECCObjectiveType.RaceRivals,ECCObjectiveType.Vip,ECCObjectiveType.Earn,ECCObjectiveType.PerfectStops,ECCObjectiveType.CleanRecord,ECCObjectiveType.SmoothRide})
+      Check(catalog.chapters[0].levels.Any(l=>l.objective==kind), "chapter 1 has a " + kind + " level");
+    Check(catalog.chapters[0].levels[0].rivals==0 && catalog.chapters[0].levels[0].timeLimit==0, "the first level has no rivals and no clock");
+    Check(all.Where(l=>l.objective==ECCObjectiveType.RaceRivals || l.objective==ECCObjectiveType.Vip).All(l=>l.rivals>=1), "race and VIP levels have rivals");
+    Check(all.Any(l=>l.night), "night levels exist");
+    Check(!all.Any(l=>l.helicopter || l.spikeStrips || l.roadblocks), "taxi levels have no chase traps ( the police bring them )");
+    var c1 = catalog.chapters[0].levels.First(l=>l.objective==ECCObjectiveType.Passengers && l.timeLimit>0);
+    var c30 = catalog.chapters[catalog.chapters.Length-1].levels.First(l=>l.objective==ECCObjectiveType.Passengers && l.timeLimit>0);
+    Check(c30.target > c1.target && c30.timeLimit/c30.target < c1.timeLimit/c1.target, "later chapters need more passengers in less time each");
     Check(all.All(l=>l.target>0 && !string.IsNullOrEmpty(l.title)), "every level has a goal and a title");
     Check(all.Select(l=>l.ObjectiveDescription).All(d=>!string.IsNullOrEmpty(d)), "every goal has a Persian description");
     Check(ECCObjectives.UsesDestination(ECCObjectiveType.Heist) && !ECCObjectives.UsesDestination(ECCObjectiveType.CollectCash), "destination goals");

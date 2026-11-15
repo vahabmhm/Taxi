@@ -133,6 +133,10 @@ namespace EndlessCarChase
         // Called once when an AI car is destroyed ( health reaches 0 )
         public static event System.Action<ECCCar> CarDestroyed;
 
+        // Taxi: called when a moving car rams another one ( striker, victim ), before the damage. Used for the police
+        // violations ( ramming a police car or a rival taxi ) and for the passengers' comfort
+        public static event System.Action<ECCCar, ECCCar> CarsBumped;
+
         // Called every time the player's car loses health ( not when a shield blocks the hit ), with the health lost
         public static event System.Action<ECCCar, float> PlayerDamaged;
 
@@ -141,6 +145,21 @@ namespace EndlessCarChase
 
         // A stationary car doesn't move or chase ( used by roadblocks )
         internal bool isStationary = false;
+
+        [Tooltip("Taxi: the part of the speed the car drives with right now ( 1 full speed, 0 stopped ). The player's brake and the AI taxis lower it")]
+        public float throttle = 1;
+
+        // Taxi: when set, an AI car drives towards this point instead of chasing the player ( the rival taxis follow
+        // their route with it, police cars that gave up the chase drive away with it )
+        public System.Func<Vector3> aiTarget;
+
+        /// <summary>
+        /// The speed the car really moves with ( its speed times the throttle )
+        /// </summary>
+        public float CurrentSpeed
+        {
+            get { return speed * Mathf.Clamp01(throttle); }
+        }
 
         /// <summary>
         /// Is this the car the player drives?
@@ -422,7 +441,7 @@ namespace EndlessCarChase
             // Move the car forward ( on a wet road it slides: it follows its heading with a delay )
             if (grip >= 0.999f)
             {
-                thisTransform.Translate(Vector3.forward * Time.deltaTime * speed, Space.Self);
+                thisTransform.Translate(Vector3.forward * Time.deltaTime * CurrentSpeed, Space.Self);
             }
             else
             {
@@ -432,11 +451,12 @@ namespace EndlessCarChase
 
                 moveDirection = Vector3.Slerp(moveDirection, heading, Time.deltaTime * Mathf.Lerp(2.5f, 12, grip)).normalized;
 
-                thisTransform.position += moveDirection * Time.deltaTime * speed;
+                thisTransform.position += moveDirection * Time.deltaTime * CurrentSpeed;
             }
 
             // Get the current position of the target player
-            if ( health > 0 && targetPlayer )    targetPosition = targetPlayer.transform.position;
+            if ( health > 0 && aiTarget != null && gameController.playerObject != this )    targetPosition = aiTarget();
+            else if ( health > 0 && targetPlayer )    targetPosition = targetPlayer.transform.position;
 
             // Make the AI controlled car rotate towards the player
             if ( gameController.playerObject != this )
@@ -564,7 +584,10 @@ namespace EndlessCarChase
                 //thisTransform.localEulerAngles = Quaternion.FromToRotation(Vector3.up, groundHitInfo.normal).eulerAngles + Vector3.up * currentRotation;
 
                 // Rotate the car based on the control direction
-                thisTransform.localEulerAngles += Vector3.up * rotateDirection * rotateSpeed * Time.deltaTime;
+                // A car that stands still can't turn on the spot ( taxi: braking to a stop )
+                float turnFactor = Mathf.Lerp(0.15f, 1, Mathf.Clamp01(throttle * 1.5f));
+
+                thisTransform.localEulerAngles += Vector3.up * rotateDirection * rotateSpeed * turnFactor * Time.deltaTime;
 
                 thisTransform.eulerAngles = new Vector3(thisTransform.eulerAngles.x, thisTransform.eulerAngles.y, thisTransform.eulerAngles.z);
 
@@ -590,7 +613,7 @@ namespace EndlessCarChase
                     if (index < frontWheels) wheels[index].localEulerAngles = Vector3.up * Mathf.LerpAngle(wheels[index].localEulerAngles.y, rotateDirection * driftAngle, Time.deltaTime * 10);
 
                     // Spin the wheel
-                    wheels[index].Find("WheelObject").Rotate(Vector3.right * Time.deltaTime * speed * 20, Space.Self);
+                    wheels[index].Find("WheelObject").Rotate(Vector3.right * Time.deltaTime * CurrentSpeed * 20, Space.Self);
                 }
             }
             else // Otherwise, if we are no longer rotating, straighten up the car and front wheels
@@ -611,7 +634,7 @@ namespace EndlessCarChase
                     if (index < frontWheels) wheels[index].localEulerAngles = Vector3.up * Mathf.LerpAngle(wheels[index].localEulerAngles.y, 0, Time.deltaTime * 5);
 
                     // Spin the wheel faster
-                    wheels[index].Find("WheelObject").Rotate(Vector3.right * Time.deltaTime * speed * 30, Space.Self);
+                    wheels[index].Find("WheelObject").Rotate(Vector3.right * Time.deltaTime * CurrentSpeed * 30, Space.Self);
                 }
             }
         }
@@ -633,9 +656,12 @@ namespace EndlessCarChase
             SeparateFrom(otherCar);
 
             // Each car hits the other once per cooldown, so both feel the crash
-            if (attackCooldown <= 0)
+            // ( taxi: a car that is almost standing still only bumps, it doesn't hurt )
+            if (attackCooldown <= 0 && CurrentSpeed > 2.5f)
             {
                 attackCooldown = hurtDelay;
+
+                if (CarsBumped != null) CarsBumped(this, otherCar);
 
                 otherCar.TakeImpact(this);
             }
@@ -696,7 +722,7 @@ namespace EndlessCarChase
             away = away.sqrMagnitude > 0.0001f ? away.normalized : -thisTransform.forward;
 
             // How fast the striker drives into this car. A head-on ram hits harder than two cars brushing side by side
-            float closingSpeed = Vector3.Dot(striker.thisTransform.forward * striker.speed - thisTransform.forward * (isStationary ? 0 : speed), away);
+            float closingSpeed = Vector3.Dot(striker.thisTransform.forward * striker.CurrentSpeed - thisTransform.forward * (isStationary ? 0 : CurrentSpeed), away);
             float speedFactor = Mathf.Clamp(0.7f + Mathf.Max(0, closingSpeed) / 12, 0.7f, 1.6f);
 
             // A heavier striker throws this car further

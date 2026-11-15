@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using EndlessCarChase.Levels;
 
@@ -105,6 +105,8 @@ namespace EndlessCarChase.Modes
                 hazards.roadblocks = Level.roadblocks;
             }
 
+            if (IsTaxiLevel) StartTaxi();
+
             ECCSpawnAroundObject.ObjectSpawned += OnObjectSpawned;
 
             ECCCar.aiSpeedBonus = Level.copSpeedBonus;
@@ -134,6 +136,9 @@ namespace EndlessCarChase.Modes
 
             if (Level.objective == ECCObjectiveType.NoDamage) ECCCar.PlayerDamaged += OnPlayerDamaged;
 
+            // The police helicopter of the chase levels; the taxi levels' police come after violations
+            if (IsTaxiLevel) Level.helicopter = false;
+
             // Night levels: headlights, siren lights, a dark sky ( the rainy road is already at night )
             if (Level.night && Level.theme != ECCLevelTheme.Rain) ECCNightMode.Enable(gameController);
 
@@ -147,8 +152,179 @@ namespace EndlessCarChase.Modes
             isRunning = true;
         }
 
+        // ----- Taxi levels -----
+
+        public bool IsTaxiLevel
+        {
+            get { return Level != null && ECCObjectives.IsTaxi(Level.objective); }
+        }
+
+        public int RivalsTookVips { get; private set; }
+
+        public const int VipsRivalsMayTake = 2;
+
+        /// <summary>
+        /// The passengers, rivals and police of a taxi level
+        /// </summary>
+        public static TaxiRules TaxiRulesFor(ECCLevelData level)
+        {
+            float mix = level.passengerMix;
+
+            TaxiRules rules = new TaxiRules
+            {
+                waitingPassengers = 6,
+                rivals = level.rivals,
+                kindWeights = new float[] { 10, Mathf.Lerp(0.5f, 4, mix), 0, Mathf.Lerp(0.5f, 3, mix), Mathf.Lerp(0.3f, 2, mix), Mathf.Lerp(0.3f, 3, mix) },
+                vipInterval = level.vipInterval,
+                police = true,
+            };
+
+            switch (level.objective)
+            {
+                case ECCObjectiveType.Vip:
+                    rules.vipInterval = level.vipInterval > 0 ? level.vipInterval : 28;
+                    rules.rivals = Mathf.Max(1, level.rivals);
+                    break;
+
+                case ECCObjectiveType.RaceRivals:
+                    rules.rivals = Mathf.Max(1, level.rivals);
+                    break;
+
+                case ECCObjectiveType.SmoothRide:
+                    // More grumpy passengers
+                    rules.kindWeights[(int)TaxiPassengerKind.Grumpy] += 3;
+                    break;
+            }
+
+            return rules;
+        }
+
+        void StartTaxi()
+        {
+            // The fares are the income, not the time
+            gameController.CancelInvoke("ScorePerSecond");
+
+            string carName = gameController.playerObject ? gameController.playerObject.name.Replace("(Clone)", string.Empty) : string.Empty;
+
+            TaxiSession.Begin(gameController, TaxiRulesFor(Level), carName);
+
+            TaxiSession.PickedUp += OnTaxiPickedUp;
+            TaxiSession.Delivered += OnTaxiDelivered;
+            TaxiPolice.ViolationCommitted += OnTaxiViolation;
+
+            // A VIP level starts with a VIP
+            if (Level.objective == ECCObjectiveType.Vip) StartCoroutine(FirstVip());
+        }
+
+        IEnumerator FirstVip()
+        {
+            yield return new WaitForSeconds(2.5f);
+
+            if (TaxiSession.Instance && isRunning) TaxiSession.Instance.SpawnVip();
+        }
+
+        void OnTaxiPickedUp(TaxiCab cab, TaxiPassenger passenger)
+        {
+            if (isRunning == false || cab.IsPlayer || Level.objective != ECCObjectiveType.Vip || passenger.kind != TaxiPassengerKind.Vip) return;
+
+            RivalsTookVips++;
+
+            if (RivalsTookVips >= VipsRivalsMayTake) LoseTaxiLevel("رقیب‌ها مسافرهای VIP رو بردن!", "باید زودتر از اونا به VIP برسی");
+        }
+
+        void OnTaxiDelivered(TaxiCab cab, TaxiPassenger passenger, int fare, int rating, int dropQuality)
+        {
+            if (isRunning == false) return;
+
+            if (cab.IsPlayer && Level.objective == ECCObjectiveType.SmoothRide && rating <= 2) LoseTaxiLevel("مسافر ناراضی پیاده شد!", "توی این مرحله هیچ مسافری نباید ناراضی بشه");
+
+            if (cab.IsPlayer == false && Level.objective == ECCObjectiveType.RaceRivals && cab.delivered >= Level.target) LoseTaxiLevel(cab.displayName + " زودتر رسید!", "رقیب زودتر از تو " + ECCUIKit.PersianDigits(Level.target) + " مسافر رسوند");
+        }
+
+        void OnTaxiViolation(TaxiViolation violation, int fine, int stars)
+        {
+            if (isRunning && Level.objective == ECCObjectiveType.CleanRecord) LoseTaxiLevel("تخلف کردی!", TaxiPolice.GetName(violation) + "؛ توی این مرحله نباید هیچ تخلفی بکنی");
+        }
+
+        void LoseTaxiLevel(string title, string detail)
+        {
+            if (isRunning == false) return;
+
+            isRunning = false;
+
+            ECCToast.Show(title, ECCRuntimeUI.BadColor, detail, 2.4f);
+
+            gameController.Fail();
+        }
+
+        TaxiSession Taxi
+        {
+            get { return TaxiSession.Instance; }
+        }
+
+        /// <summary>
+        /// The count of a taxi goal: passengers, VIPs, coins or perfect stops
+        /// </summary>
+        public int TaxiCount
+        {
+            get
+            {
+                TaxiSession session = Taxi;
+
+                if (session == null) return 0;
+
+                switch (Level.objective)
+                {
+                    case ECCObjectiveType.Earn: return Mathf.Max(0, gameController.score);
+                    case ECCObjectiveType.PerfectStops: return session.PerfectStops;
+                    case ECCObjectiveType.Vip: return session.Player ? CountVipsDelivered() : 0;
+                    default: return session.PlayerDeliveries;
+                }
+            }
+        }
+
+        int vipsDelivered;
+
+        int CountVipsDelivered()
+        {
+            return vipsDelivered;
+        }
+
+        void CountVip(TaxiCab cab, TaxiPassenger passenger, int fare, int rating, int dropQuality)
+        {
+            if (cab.IsPlayer && passenger.kind == TaxiPassengerKind.Vip) vipsDelivered++;
+        }
+
+        void OnEnable()
+        {
+            TaxiSession.Delivered += CountVip;
+        }
+
+        void OnDisable()
+        {
+            TaxiSession.Delivered -= CountVip;
+        }
+
+        /// <summary>
+        /// The stars of a taxi level: one for winning, one for a good average rating, one for a clean record
+        /// </summary>
+        int CalculateTaxiStars()
+        {
+            int stars = 1;
+
+            if (Taxi && Taxi.AverageRating >= 3.8f) stars++;
+
+            if (TaxiPolice.Instance == null || TaxiPolice.Instance.Violations == 0) stars++;
+
+            return stars;
+        }
+
         void OnDestroy()
         {
+            TaxiSession.PickedUp -= OnTaxiPickedUp;
+            TaxiSession.Delivered -= OnTaxiDelivered;
+            TaxiPolice.ViolationCommitted -= OnTaxiViolation;
+
             ECCCar.CarDestroyed -= OnCarDestroyed;
             ECCItem.Collected -= OnItemCollected;
             ECCSpawnAroundObject.ObjectSpawned -= OnObjectSpawned;
@@ -419,6 +595,34 @@ namespace EndlessCarChase.Modes
 
             switch (Level.objective)
             {
+                case ECCObjectiveType.Passengers:
+                    ECCHintBanner.Show("Icons/target", ECCCarTheme.CandyBlue, "مسافرکشی!", target + " مسافر رو سوار کن و به مقصد برسون؛ جلوی دایره‌ها ترمز کن");
+                    break;
+
+                case ECCObjectiveType.RaceRivals:
+                    ECCHintBanner.Show("Icons/trophy", ECCCarTheme.CandyRed, "مسابقه با تاکسی‌ها!", "زودتر از رقیب‌ها " + target + " مسافر برسون");
+                    break;
+
+                case ECCObjectiveType.Vip:
+                    ECCHintBanner.Show("Icons/crown", TaxiColors.Vip, "مسافرهای VIP!", target + " VIP رو برسون؛ اگه رقیب‌ها دو تا رو ببرن، می‌بازی");
+                    break;
+
+                case ECCObjectiveType.Earn:
+                    ECCHintBanner.Show("dollar", ECCCarTheme.CandyGreen, "کرایه جمع کن!", target + " سکه کرایه دربیار؛ سفر خوب انعام داره");
+                    break;
+
+                case ECCObjectiveType.PerfectStops:
+                    ECCHintBanner.Show("Icons/target", ECCCarTheme.CandyOrange, "ترمز دقیق!", target + " بار درست وسط دایره وایسا");
+                    break;
+
+                case ECCObjectiveType.CleanRecord:
+                    ECCHintBanner.Show("Icons/shield", ECCCarTheme.CandyBlue, "رانندگی قانونی!", "چراغ قرمز، تصادف و خلاف جهت ممنوع؛ " + target + " مسافر برسون");
+                    break;
+
+                case ECCObjectiveType.SmoothRide:
+                    ECCHintBanner.Show("Icons/heart", ECCCarTheme.CandyGreen, "سفر آرام!", "به هیچ چیزی نکوب؛ هیچ مسافری نباید ناراضی بشه");
+                    break;
+
                 case ECCObjectiveType.CollectCash:
                     ECCHintBanner.Show("dollar", ECCCarTheme.CandyGreen, "تا می‌تونی دلار جمع کن!", "برای بردن این مرحله باید " + target + " دلار جمع کنی");
                     break;
@@ -497,6 +701,14 @@ namespace EndlessCarChase.Modes
         {
             switch (Level.objective)
             {
+                case ECCObjectiveType.Passengers:
+                case ECCObjectiveType.CleanRecord:
+                case ECCObjectiveType.SmoothRide:
+                case ECCObjectiveType.RaceRivals:
+                case ECCObjectiveType.Vip:
+                    return "هنوز " + ECCUIKit.PersianDigits(Mathf.Max(0, Level.target - TaxiCount)) + " مسافر دیگه مونده";
+                case ECCObjectiveType.Earn: return "هنوز " + ECCUIKit.PersianDigits(Mathf.Max(0, Level.target - TaxiCount)) + " سکه دیگه لازم داری";
+                case ECCObjectiveType.PerfectStops: return "هنوز " + ECCUIKit.PersianDigits(Mathf.Max(0, Level.target - TaxiCount)) + " ترمز عالی دیگه مونده";
                 case ECCObjectiveType.DestroyCops: return "هنوز " + ECCUIKit.PersianDigits(Mathf.Max(0, Level.target - CopsDestroyed)) + " پلیس دیگه مونده؛ سریع‌تر بکوبونشون";
                 case ECCObjectiveType.CollectCash: return "هنوز " + ECCUIKit.PersianDigits(Mathf.Max(0, Level.target - CashCollected)) + " دلار دیگه لازم داری";
                 case ECCObjectiveType.Escape: return "با تمام سرعت به سمت مقصد برو";
@@ -598,6 +810,14 @@ namespace EndlessCarChase.Modes
                 case ECCObjectiveType.Heist: return HasLoot && escapePoint && gameController.playerObject && escapePoint.IsReachedBy(gameController.playerObject.transform);
                 case ECCObjectiveType.Checkpoints: return CheckpointsPassed >= Level.target;
                 case ECCObjectiveType.DestroyBoss: return bossDefeated;
+                case ECCObjectiveType.Passengers:
+                case ECCObjectiveType.RaceRivals:
+                case ECCObjectiveType.Vip:
+                case ECCObjectiveType.Earn:
+                case ECCObjectiveType.PerfectStops:
+                case ECCObjectiveType.CleanRecord:
+                case ECCObjectiveType.SmoothRide:
+                    return TaxiCount >= Level.target;
                 default: return Elapsed >= Level.target;
             }
         }
@@ -643,6 +863,14 @@ namespace EndlessCarChase.Modes
                         return HasLoot ? 0.5f + 0.5f * Mathf.Clamp01(1 - DistanceToEscape / Level.target) : 0.5f * Mathf.Clamp01(1 - DistanceToEscape / lootDistance);
                     case ECCObjectiveType.Checkpoints: return Mathf.Clamp01((float)CheckpointsPassed / Mathf.Max(1, Level.target));
                     case ECCObjectiveType.DestroyBoss: return bossDefeated ? 1 : (boss ? Mathf.Clamp01(1 - boss.health / Mathf.Max(1, boss.healthMax)) : 0);
+                    case ECCObjectiveType.Passengers:
+                    case ECCObjectiveType.RaceRivals:
+                    case ECCObjectiveType.Vip:
+                    case ECCObjectiveType.Earn:
+                    case ECCObjectiveType.PerfectStops:
+                    case ECCObjectiveType.CleanRecord:
+                    case ECCObjectiveType.SmoothRide:
+                        return Mathf.Clamp01(TaxiCount / (float)Mathf.Max(1, Level.target));
                     default: return Mathf.Clamp01(Elapsed / Level.target);
                 }
             }
@@ -675,6 +903,13 @@ namespace EndlessCarChase.Modes
                     case ECCObjectiveType.Heist: return (HasLoot ? "فاصله تا نقطه‌ی فرار: " : "فاصله تا کیف پول: ") + Mathf.RoundToInt(DistanceToEscape) + " متر";
                     case ECCObjectiveType.NoDamage: return "با کمترین خسارت تا مقصد: " + Mathf.RoundToInt(DistanceToEscape) + " متر";
                     case ECCObjectiveType.Checkpoints: return "چک‌پوینت: " + CheckpointsPassed + " / " + Level.target;
+                    case ECCObjectiveType.Passengers: return "مسافر: " + TaxiCount + " / " + Level.target;
+                    case ECCObjectiveType.CleanRecord: return "مسافر بدون تخلف: " + TaxiCount + " / " + Level.target;
+                    case ECCObjectiveType.SmoothRide: return "سفر آرام: " + TaxiCount + " / " + Level.target;
+                    case ECCObjectiveType.RaceRivals: return "تو: " + TaxiCount + " · بهترین رقیب: " + (Taxi ? Taxi.BestRivalDeliveries : 0) + " · هدف: " + Level.target;
+                    case ECCObjectiveType.Vip: return "VIP: " + TaxiCount + " / " + Level.target + " · رقیب‌ها: " + RivalsTookVips + " / " + VipsRivalsMayTake;
+                    case ECCObjectiveType.Earn: return "درآمد: " + TaxiCount + " / " + Level.target;
+                    case ECCObjectiveType.PerfectStops: return "ترمز عالی: " + TaxiCount + " / " + Level.target;
                     case ECCObjectiveType.DestroyBoss: return boss ? "سلامت " + BossName + ": " + Mathf.CeilToInt(Mathf.Max(0, boss.health) / Mathf.Max(1, boss.healthMax) * 100) + "%" : "منتظر " + BossName + " باش...";
                     default: return "زنده بمان: " + Mathf.FloorToInt(Elapsed) + " / " + Level.target;
                 }
@@ -701,6 +936,8 @@ namespace EndlessCarChase.Modes
             ECCHintBanner.Clear();
 
             if (hud) hud.Hide();
+
+            if (TaxiHUD.Instance) TaxiHUD.Instance.Hide();
         }
 
         /// <summary>
@@ -708,6 +945,8 @@ namespace EndlessCarChase.Modes
         /// </summary>
         int CalculateStars()
         {
+            if (IsTaxiLevel) return CalculateTaxiStars();
+
             ECCCar player = gameController.playerObject;
 
             float healthLeft = player && player.healthMax > 0 ? player.health / player.healthMax : 0;
@@ -725,6 +964,8 @@ namespace EndlessCarChase.Modes
             ECCHintBanner.Clear();
 
             if (hud) hud.Hide();
+
+            if (TaxiHUD.Instance) TaxiHUD.Instance.Hide();
 
             int stars = 0;
             int reward = 0;
