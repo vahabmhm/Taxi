@@ -1,0 +1,7 @@
+<!-- IL2CPP code stripping: keep the game code ( methods called by name with SendMessage / Invoke, and the Adivery
+     AndroidJavaProxy callbacks that Java calls through reflection ) and the Tapsell Mediation assemblies -->
+<linker>
+  <assembly fullname="Assembly-CSharp" preserve="all" />
+  <assembly fullname="Tapsell.Mediation" preserve="all" />
+  <assembly fullname="Tapsell.Mediation.Adapter.Legacy" preserve="all" />
+</linker>

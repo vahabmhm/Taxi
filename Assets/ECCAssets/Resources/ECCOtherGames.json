@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "verifiedOn": "2026-10-27",
+  "source": "Cafe Bazaar public listings (cafebazaar.ir/app/<packageName>), package names taken from sibling Unity projects in D:/Unity/Projects",
+  "games": [
+    {
+      "packageName": "com.ballzpuzzle.mhmpour",
+      "title": "آجرشکن",
+      "description": "توپ را با دقت پرتاب کنید، آجرها را قبل از رسیدن به پایین نابود کنید و رکوردهای جدید ثبت کنید.",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.ballzpuzzle.mhmpour",
+      "bazaarDeepLink": "bazaar://details?id=com.ballzpuzzle.mhmpour",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.ballzpuzzle.mhmpour-a4dbfac1-2627-4300-9e5a-007897b44fc4_128x128.png",
+      "icon": "com.ballzpuzzle.mhmpour.png"
+    },
+    {
+      "packageName": "com.mhmpourgame.connectballs",
+      "title": "وصلینو",
+      "description": "وصلینو؛ توپ‌های همرنگ را به هم وصل کن، بازی فکری",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpourgame.connectballs",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpourgame.connectballs",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpourgame.connectballs-9d524ad6-01f9-4197-bc2e-9bef32c8c6c3_128x128.png",
+      "icon": "com.mhmpourgame.connectballs.png"
+    },
+    {
+      "packageName": "com.mhmgame.dropman",
+      "title": "سقوط چی",
+      "description": "بازی فکری، بازی معمایی، تست هوش",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmgame.dropman",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmgame.dropman",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmgame.dropman-34847808-1907-47a1-ba0a-7013603a974f_128x128.png",
+      "icon": "com.mhmgame.dropman.png"
+    },
+    {
+      "packageName": "com.mhmpourgame.jewellegend",
+      "title": "جواهرچین",
+      "description": "پازل جواهری سه‌بعدی با گیم‌پلی سریع، بوسترهای قدرتمند و مراحل متنوع.",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpourgame.jewellegend",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpourgame.jewellegend",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpourgame.jewellegend-d4b2050c-0985-43cb-aeb8-009aa8eded4e_128x128.png",
+      "icon": "com.mhmpourgame.jewellegend.png"
+    },
+    {
+      "packageName": "com.mhmpourgame.nmerge",
+      "title": "ادغام اعداد",
+      "description": "اعداد را با هم ادغام کنید، بزرگ‌ترین عدد را بسازید و رکورد جدید ثبت کنید! یک بازی فکری",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpourgame.nmerge",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpourgame.nmerge",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpourgame.nmerge-4961859e-5864-4a32-a271-1ce20c6a160f_128x128.png",
+      "icon": "com.mhmpourgame.nmerge.png"
+    },
+    {
+      "packageName": "com.mhmpour.onewaypath",
+      "title": "بی بازگشت",
+      "description": "نقطه‌ها را با یک مسیر به هم وصل کنید، از هر نقطه فقط یک‌بار عبور کنید و با پیدا کردن بهترین مسیر، خود را به چالش بکشید",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpour.onewaypath",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpour.onewaypath",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpour.onewaypath-3ca71f0b-c4aa-496c-a7cc-aa14a4d938ca_128x128.png",
+      "icon": "com.mhmpour.onewaypath.png"
+    },
+    {
+      "packageName": "com.mhmpourgame.blockpuzzle",
+      "title": "آجرچین",
+      "description": "پازل بلوکی، بازی فکری، آجرچین، تتریس، سرگرمی، رکوردزنی، بلوک‌های رنگی",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpourgame.blockpuzzle",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpourgame.blockpuzzle",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpourgame.blockpuzzle-e43675cf-bf15-4bc8-9092-d8b2fe20697c_128x128.png",
+      "icon": "com.mhmpourgame.blockpuzzle.png"
+    },
+    {
+      "packageName": "com.vahab.spacegame",
+      "title": "جنگ ستارگان",
+      "description": "جنگ ستارگان یک بازی اکشن و تیراندازی فضایی هیجان‌انگیز است. سفینه خود را هدایت کنید",
+      "developerId": "774612137738",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.vahab.spacegame",
+      "bazaarDeepLink": "bazaar://details?id=com.vahab.spacegame",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.vahab.spacegame-314f749b-b201-4376-9c97-b7712c2a7a5d_128x128.png",
+      "icon": "com.vahab.spacegame.png"
+    },
+    {
+      "packageName": "com.mhmpourgame.tower",
+      "title": "دفاع از قلعه",
+      "description": "دشمنان به قلعه حمله کرده‌اند! با کمانداران خود به دشمنان شلیک کنید، قلعه را نجات دهید",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpourgame.tower",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpourgame.tower",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpourgame.tower-61c2f92c-c716-4f94-b7c4-ee1d143eed49_128x128.png",
+      "icon": "com.mhmpourgame.tower.png"
+    },
+    {
+      "packageName": "com.vahab.tapIt",
+      "title": "ضربه نهایی",
+      "description": "با یک ضربه، زنجیره‌ای از انفجارهای رنگارنگ ایجاد کن و رکوردت را بشکن!",
+      "developerId": "774612137738",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.vahab.tapIt",
+      "bazaarDeepLink": "bazaar://details?id=com.vahab.tapIt",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.vahab.tapIt-46d07af6-bbfa-4662-ae55-39c0b89f87e1_128x128.png",
+      "icon": "com.vahab.tapIt.png"
+    },
+    {
+      "packageName": "com.vahabgame.tile",
+      "title": "لاک‌پشت نگهبان",
+      "description": "بازی هیجان‌انگیز لاک‌پشت نگهبان؛ توپ‌های رنگی را قبل از رسیدن به تونل پایانی حذف کنید، رکورد بزنید",
+      "developerId": "774612137738",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.vahabgame.tile",
+      "bazaarDeepLink": "bazaar://details?id=com.vahabgame.tile",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.vahabgame.tile-204b23c4-0757-43db-9146-7dea82ad97bf_128x128.png",
+      "icon": "com.vahabgame.tile.png"
+    },
+    {
+      "packageName": "com.mhmpourgame.sudoku",
+      "title": "سودوکو",
+      "description": "سودوکو؛ یک بازی فکری جذاب برای تقویت تمرکز و حافظه. با حل معماهای متنوع ذهن خود را به چالش بکشید.",
+      "developerId": "861868191370",
+      "bazaarUrl": "https://cafebazaar.ir/app/com.mhmpourgame.sudoku",
+      "bazaarDeepLink": "bazaar://details?id=com.mhmpourgame.sudoku",
+      "iconUrl": "https://s.cafebazaar.ir/images/icons/com.mhmpourgame.sudoku-4d7e4383-bbf9-43fa-a94b-259b3562c285_128x128.png",
+      "icon": "com.mhmpourgame.sudoku.png"
+    }
+  ]
+}
