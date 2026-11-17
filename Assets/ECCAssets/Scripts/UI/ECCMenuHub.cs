@@ -122,7 +122,7 @@ namespace EndlessCarChase
         // ----- The CrowdRush style menu -----
 
         // Design size of the middle column ( title, level card, buttons ); it shrinks on short screens
-        const float ColumnHeight = 1150;
+        const float ColumnHeight = 1266;
         const float CardWidth = 640;
         const float CardHeight = 590;
         const float GridButtonWidth = 308;
@@ -216,9 +216,14 @@ namespace EndlessCarChase
             AddFeature("login", "جایزه ورود روزانه", ECCCarTheme.Hex(0xF4B400), "Icons/gift", Color.white, ECCLoginRewardsUI.Open, gridTop);
             AddFeature("achievements", "دستاوردها", ECCCarTheme.Hex(0xE0A100), "Icons/trophy", Color.white, ECCAchievementsUI.Open, gridTop);
 
+            // The weekly star league: a wide button under the grid, with the player's rank
+            BuildLeagueButton(gridTop - 3 * (GridButtonHeight + 24));
+
             ECCAchievements.Changed += RefreshBadges;
 
             ECCMissions.Changed += RefreshBadges;
+
+            ECCWeeklyLeague.Changed += OnLeagueChanged;
 
             // Today's login counts for the ten-day rewards
             ECCLoginRewards.RegisterLogin();
@@ -617,6 +622,7 @@ namespace EndlessCarChase
         {
             ECCMissions.Changed -= RefreshBadges;
             ECCAchievements.Changed -= RefreshBadges;
+            ECCWeeklyLeague.Changed -= OnLeagueChanged;
 
             if (instance == this) instance = null;
         }
@@ -673,11 +679,66 @@ namespace EndlessCarChase
             SetAvailable("challenge", ECCDailyChallenge.IsCompletedToday == false || ECCDailyChallenge.IsDoubleUsedToday == false);
         }
 
+        Button leagueButton;
+        Text leagueRank;
+
+        /// <summary>
+        /// «لیگ هفتگی» across the two grid columns, a crown on the right and the rank in a chip on the left
+        /// </summary>
+        void BuildLeagueButton(float top)
+        {
+            float width = GridButtonWidth * 2 + 24;
+
+            leagueButton = CandyButton(column, "League", "لیگ هفتگی", ECCWeeklyLeagueUI.LeagueColor, "Icons/crown", new Vector2(width, GridButtonHeight), 28);
+
+            RectTransform rect = (RectTransform)leagueButton.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
+            rect.pivot = new Vector2(0.5f, 1);
+            rect.anchoredPosition = new Vector2(0, top);
+
+            Text label = ECCRuntimeUI.GetLabel(leagueButton);
+            label.rectTransform.sizeDelta -= new Vector2(190, 0);
+            label.rectTransform.anchoredPosition += new Vector2(95, 0);
+
+            Image chip = ECCCarTheme.CreatePanel("RankChip", leagueButton.transform, new Vector2(0, 0.5f), new Vector2(18, 2), new Vector2(170, 60), new Color(0, 0, 0, 0.22f));
+            chip.rectTransform.pivot = new Vector2(0, 0.5f);
+            chip.raycastTarget = false;
+
+            leagueRank = ECCRuntimeUI.CreateText("Rank", chip.transform, string.Empty, 26, new Vector2(0.5f, 0.5f), new Vector2(0, 1), new Vector2(160, 52), Color.white);
+            leagueRank.resizeTextForBestFit = true;
+            leagueRank.resizeTextMinSize = 14;
+            leagueRank.resizeTextMaxSize = 26;
+
+            leagueButton.onClick.AddListener(ECCWeeklyLeagueUI.Open);
+
+            RefreshLeague(false);
+        }
+
+        /// <summary>
+        /// Shows the current rank on the league button. On the visible menu it also counts as the rank the player saw
+        /// </summary>
+        void RefreshLeague(bool seen)
+        {
+            if (leagueRank == null) return;
+
+            int rank = ECCWeeklyLeague.Rank;
+
+            ECCRuntimeUI.SetText(leagueRank, "رتبه " + ECCUIKit.PersianDigits(rank));
+
+            if (seen) ECCWeeklyLeague.MarkRankShown(rank);
+        }
+
+        void OnLeagueChanged()
+        {
+            RefreshLeague(false);
+        }
+
         /// <summary>
         /// Called every time the main menu appears
         /// </summary>
         void OnMainMenuShown()
         {
+            RefreshLeague(true);
             RefreshBadges();
             RefreshMode();
 
