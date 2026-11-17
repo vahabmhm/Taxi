@@ -204,6 +204,12 @@ namespace EndlessCarChase
             subtitle.rectTransform.pivot = topCenter;
             subtitle.GetComponent<Outline>().enabled = false;
 
+            // The driver's rank under the title; tapping it opens the rank popup
+            ECCRuntimeUI.SetText(subtitle, TaxiRankUI.MenuLine());
+            subtitle.color = ECCCarTheme.Hex(0xFFD54A);
+            subtitle.raycastTarget = true;
+            subtitle.gameObject.AddComponent<Button>().onClick.AddListener(TaxiRankUI.Open);
+
             BuildLevelCard(new Vector2(0, -186));
 
             // Two columns of candy buttons under the card ( right to left )

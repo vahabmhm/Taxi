@@ -81,7 +81,8 @@ namespace EndlessCarChase
             // Better handling also brakes better
             driver.brakeRate *= 1 + ECCUpgrades.GetLevel(carName, ECCUpgradeType.Handling) * 0.08f;
 
-            TaxiMarkers.AddRoofSign(player, TaxiColors.PlayerYellow);
+            // The top rank drives with a golden sign
+            TaxiMarkers.AddRoofSign(player, TaxiDriverRank.GoldenSign ? TaxiColors.Gold : TaxiColors.PlayerYellow);
 
             return driver;
         }
@@ -192,12 +193,24 @@ namespace EndlessCarChase
             {
                 if (passenger == null) continue;
 
-                float distance = ECCRuntimeVisuals.FlatDistance(position, passenger.dropoff.zone);
+                // A follow ride: the followed car
+                Vector3 goal = passenger.dropoff.zone;
+
+                if (passenger.dropoffHidden)
+                {
+                    TaxiFollowRide ride = TaxiFollowRide.For(passenger);
+
+                    if (ride == null) continue;
+
+                    goal = ride.Position;
+                }
+
+                float distance = ECCRuntimeVisuals.FlatDistance(position, goal);
 
                 if (distance < best)
                 {
                     best = distance;
-                    target = passenger.dropoff.zone;
+                    target = goal;
                     guideColor = passenger.KindColor;
                     isDestination = true;
                 }

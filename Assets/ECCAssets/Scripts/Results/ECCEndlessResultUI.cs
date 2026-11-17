@@ -44,6 +44,9 @@ namespace EndlessCarChase
             card.Stars(5, rating, 46);
             card.Line("مسافر: " + ECCUIKit.PersianDigits(delivered) + " · توقف عالی: " + ECCUIKit.PersianDigits(session ? session.PerfectStops : 0), 22, 32);
 
+            // The driver's rank, kept across the shifts
+            if (TaxiDriverRank.Rides > 0) card.Line("رتبه: " + TaxiDriverRank.CurrentRank.title + " · امتیاز راننده " + TaxiDriverRank.FormatRating(TaxiDriverRank.Rating), 20, 30, ECCCarTheme.CandyOrangeShade);
+
             if (police && police.TotalFined > 0) card.Line("جریمه‌ی پلیس: " + ECCUIKit.PersianDigits(police.TotalFined) + " سکه", 20, 30, ECCCarTheme.CandyRed);
 
             card.MoneyPill("درآمد این شیفت", score);

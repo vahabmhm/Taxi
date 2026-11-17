@@ -122,6 +122,11 @@ namespace EndlessCarChase
 
         // ----- Interstitial pacing: «مرحله بعد» taps after a win since the last interstitial -----
         public int levelsSinceInterstitial = 0;
+
+        // ----- Taxi driver rank ( TaxiDriverRank ): rides delivered in every mode, the latest ratings, the best rank -----
+        public int driverRides = 0;
+        public List<int> driverRatings = new List<int>();
+        public int driverRank = 0;
     }
 
     [Serializable]

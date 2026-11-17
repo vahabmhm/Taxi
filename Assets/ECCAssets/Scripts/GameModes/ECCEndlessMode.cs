@@ -68,6 +68,7 @@ namespace EndlessCarChase.Modes
 
         TaxiSession session;
         TaxiShiftHUD hud;
+        TaxiCityEvents events;
         int rivalsJoined;
         bool lowTimeWarned;
         bool ended;
@@ -93,17 +94,37 @@ namespace EndlessCarChase.Modes
         /// </summary>
         public static TaxiRules ShiftRules(float elapsed, int rivals, float vipInterval)
         {
+            return ShiftRules(elapsed, rivals, vipInterval, TaxiDriverRank.FollowUnlocked);
+        }
+
+        /// <summary>
+        /// The shift's rules. Follow passengers ( «دنبال اون ماشین برو!» ) come once the driver's rank opened them, after
+        /// the first half minute
+        /// </summary>
+        public static TaxiRules ShiftRules(float elapsed, int rivals, float vipInterval, bool follow)
+        {
             float harder = Mathf.Clamp01(elapsed / 240);
+
+            float followWeight = follow && elapsed >= 30 ? Mathf.Lerp(0.6f, 1.2f, harder) : 0;
 
             return new TaxiRules
             {
                 waitingPassengers = 6,
                 rivals = rivals,
-                kindWeights = new float[] { 10, Mathf.Lerp(1, 4, harder), 0, Mathf.Lerp(1, 3, harder), Mathf.Lerp(0.5f, 2, harder), Mathf.Lerp(0.5f, 3, harder) },
+                kindWeights = new float[] { 10, Mathf.Lerp(1, 4, harder), 0, Mathf.Lerp(1, 3, harder), Mathf.Lerp(0.5f, 2, harder), Mathf.Lerp(0.5f, 3, harder), followWeight },
                 vipInterval = vipInterval,
                 police = true,
                 fareMultiplier = 1,
+                rideRequests = true,
             };
+        }
+
+        /// <summary>
+        /// Seconds between two VIPs: sooner for a well ranked driver
+        /// </summary>
+        float VipInterval
+        {
+            get { return vipInterval * TaxiDriverRank.VipIntervalMultiplier; }
         }
 
         public override void OnGameStarted()
@@ -123,9 +144,12 @@ namespace EndlessCarChase.Modes
 
             rivalsJoined = startRivals;
 
-            session = TaxiSession.Begin(gameController, ShiftRules(0, startRivals, vipInterval), carName);
+            session = TaxiSession.Begin(gameController, ShiftRules(0, startRivals, VipInterval), carName);
 
             TaxiSession.Delivered += OnDelivered;
+
+            // Rush hour, a concert, a police crackdown or a tourist tour now and then
+            events = TaxiCityEvents.Create(gameController, session);
 
             hud = TaxiShiftHUD.Create(gameController, this);
 
@@ -204,7 +228,9 @@ namespace EndlessCarChase.Modes
                 ECCHintBanner.Show("Icons/target", ECCCarTheme.CandyRed, "یه تاکسی رقیب دیگه اومد!", "حالا " + ECCUIKit.PersianDigits(rivals) + " تاکسی رقیب توی شهرن", 2, ECCHintBanner.Kind.Minor);
             }
 
-            TaxiRules rules = ShiftRules(Elapsed, rivals, vipInterval);
+            TaxiRules rules = ShiftRules(Elapsed, rivals, VipInterval);
+
+            if (events) events.ModifyWeights(rules.kindWeights);
 
             session.rules.kindWeights = rules.kindWeights;
             session.SetRivalCount(rivals);
