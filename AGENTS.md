@@ -1,7 +1,7 @@
 # UNITY MASTER DEVELOPMENT AGENT
-## Twelve Integrated Features — Sequential Implementation, Persian UI, RTL Support
+## Thirteen Integrated Features — Sequential Implementation, Persian UI, RTL Support
 
-You are a senior Unity developer, gameplay systems architect, mobile UI/UX designer, game-economy designer, and advertising integration engineer. Inspect the actual Unity project and implement the twelve systems below. Preserve existing gameplay, assets, progression, and player saves. Deliver working implementations, not pseudocode or unconnected scripts.
+You are a senior Unity developer, gameplay systems architect, mobile UI/UX designer, game-economy designer, and advertising integration engineer. Inspect the actual Unity project and implement the thirteen systems below. Preserve existing gameplay, assets, progression, and player saves. Deliver working implementations, not pseudocode or unconnected scripts.
 
 # GLOBAL RULES
 
@@ -16,7 +16,7 @@ You are a senior Unity developer, gameplay systems architect, mobile UI/UX desig
 
 # MANDATORY PERSIAN LANGUAGE AND RTL SUPPORT
 
-All NEW player-facing text across ALL TWELVE tasks MUST be in natural, fluent Persian (Farsi), regardless of the original game's language. This requirement applies to page titles, missions, challenges, instructions, buttons, status labels, notifications, power-ups, reward results, NoAds messages, catalog labels, and error messages.
+All NEW player-facing text across ALL THIRTEEN tasks MUST be in natural, fluent Persian (Farsi), regardless of the original game's language. This requirement applies to page titles, missions, challenges, instructions, buttons, status labels, notifications, power-ups, reward results, NoAds messages, catalog labels, and error messages.
 
 - Make new UI screens properly right-to-left (RTL), with correct reading order, alignment, padding, and layout flow.
 - Use a Persian-capable font. Reuse an existing compatible font when possible; if missing, use a properly licensed compatible alternative and document any import steps.
@@ -48,7 +48,7 @@ Required new UI wording (adapt minor phrasing only for natural Persian):
 
 # CRITICAL: ONE TASK AT A TIME / RESUMABLE WORK
 
-Twelve tasks must be processed IN THIS ORDER:
+Thirteen tasks must be processed IN THIS ORDER:
 
 1. Coin Economy
 2. Daily Missions
@@ -62,6 +62,7 @@ Twelve tasks must be processed IN THIS ORDER:
 10. Pre-Ad Loading Popup
 11. Win/Loss Result Screens Upgrade
 12. One-Time Bazaar / Myket Review Prompt (Android Intent)
+13. Weekly Star League (Simulated Weekly Leaderboard)
 
 **DO NOT implement multiple major tasks simultaneously.** Finish the current task to a safe, working checkpoint, run all available relevant validation, fix blocking errors, update progress, and only then proceed. This avoids leaving many partially implemented features if Codex usage, context, or execution time runs out.
 
@@ -121,7 +122,63 @@ Coin-reward popup:
 - If neither Adivery nor Tapsell Mediation can provide the ad, show the project's shared **NoAds** panel (or the safe documented placeholder until Task 5 makes the shared asset available). Do not fake ad completion.
 - Respect any existing ad frequency limits and cooldowns; do not invent a universal daily quota unless explicitly configured for the game. Test opening from every relevant screen, visual consistency, RTL, Vizari font rendering, plus-button overlap, reward flow, duplicate callbacks, and provider-unavailable behavior.
 
-Verify app restarts, scene changes, reward duplication, insufficient balance, spending and UI synchronization. Save progress before Task 2.
+
+## Mandatory coin economy balancing and reward/cost rebalance
+
+Do not merely add coin rewards and prices independently. **Audit and rebalance the complete coin economy as one connected system** so the player earns enough to feel rewarded, but does not accumulate so many coins that spending and optional rewarded ads become irrelevant.
+
+### 1. Audit the full economy before changing values
+
+- Inspect every existing and planned coin source: level wins, stage progression, daily missions, Daily Challenge, daily login calendar, lucky wheel, achievements, gifts, rewarded-video coin popup, win-screen 2X bonuses, and any other reward path.
+- Inspect every coin sink: power-up purchases/uses, continue or revive purchases if applicable, level skips, shop items, retries, upgrades, and any other spending path.
+- Read the actual gameplay pace, average session length, level difficulty, expected daily play frequency, and the usefulness/frequency of each purchasable item.
+- Identify duplicate rewards, overly generous payouts, low-cost/high-value purchases, and any infinite or easily repeatable coin farming loops.
+- Record the original values and the proposed revised values in `CODEX_PROGRESS.md` (or a dedicated economy-balance table/config) so changes are transparent and tunable.
+
+### 2. Establish a per-game economy model
+
+- Build a **per-game configurable economy table**; do not copy identical coin values between unrelated games.
+- Define a reasonable expected daily coin income for a typical active player, based on normal gameplay plus achievable missions/challenges/login rewards.
+- Define the expected daily/weekly spending opportunities and prices so coins have meaningful uses throughout progression.
+- Tune rewards and costs together. If a source is increased, check whether related prices or other rewards also need adjustment; if a sink becomes cheaper, check whether it causes excessive purchasing or removes the value of coins.
+- Keep early-game rewards welcoming, then scale rewards and prices gradually with progression/difficulty. Avoid sudden inflation, huge unexplained reward jumps, or prices that become impossible for ordinary players.
+- Preserve meaningful rewards for skill and progress. Do not reduce all gameplay rewards simply to force ad views.
+
+### 3. Encourage approximately 1–2 optional rewarded ads per day
+
+The intended design target is to make **about one or two rewarded videos per active day attractive and useful**, not mandatory. Use the shared rewarded-coin popup and other existing rewarded opportunities as optional top-ups.
+
+- Set the rewarded-coin offer per game so it is noticeable and worthwhile, but not so large that one ad floods the wallet or makes normal coin sinks irrelevant.
+- As an initial tuning guideline, a single rewarded-coin ad may provide roughly **10–20% of a typical active player's expected daily coin spending**, and one or two ads together should provide a helpful top-up rather than the majority of all progression income. Adjust this range based on the actual game's session length, economy and testing; it is a starting guideline, not a universal fixed rule.
+- Make the offer context-aware where appropriate (for example, a player close to a useful power-up purchase may find the offer more relevant), but never misrepresent the amount or change it after the player accepts the ad.
+- Do not block ordinary gameplay, essential progression, or a reasonable path to earn coins behind advertisements. A player who chooses not to watch ads must still be able to progress through normal play, though it may take longer to accumulate optional purchases.
+- Do not add forced ads or automatically open rewarded ads. The player must explicitly choose to watch each rewarded video.
+- Respect any existing provider/ad frequency limits. Do not introduce a hard daily ad quota unless the project already requires one or the developer explicitly configures it. The 1–2 ads/day target is an economy-design goal, not permission to force or repeatedly prompt the player.
+
+### 4. Prevent coin inflation and preserve long-term value
+
+- Ensure the total expected coin income from all daily systems is considered together; do not balance missions, wheel, login rewards, challenge rewards and level rewards in isolation.
+- Check best-case farming behavior, repeated easy levels, retries, duplicate callbacks, repeated claims, offline clock changes, and save/load exploits.
+- Use idempotent transaction IDs for every reward and reliable spend transactions for every purchase.
+- Keep wallet balance nonnegative. A failed purchase must not consume coins; a failed or skipped ad must not grant coins.
+- Review whether high-value purchases (especially power-ups and level skips) remain meaningful after daily rewards and ad bonuses are included.
+- Avoid excessive stockpiling: tune recurring sources and useful sinks so regular play naturally creates spending decisions without making the player feel punished for saving.
+- Do not silently wipe or arbitrarily devalue existing player balances. If the current economy requires migration, preserve existing balances and document a safe migration strategy.
+
+### 5. Test and tune with representative player profiles
+
+Create a simple economy simulation or spreadsheet/table using the game's actual configurable values and estimate at least:
+
+- A casual player who plays briefly and watches no ads.
+- A regular player who completes normal gameplay and daily rewards but watches no ads.
+- A regular player who voluntarily watches about one rewarded ad per day.
+- A highly active player who voluntarily watches about two rewarded ads per day.
+
+For each profile, estimate daily coin income, typical spending, remaining balance, and how long it takes to afford common power-ups/optional skips. Adjust values if the no-ad player cannot reasonably progress or if the two-ad player accumulates excessive unused coins.
+
+Validate the economy at early, middle and late progression. Record the final per-game values, assumptions, and any remaining tuning risks. If real player analytics are unavailable, clearly label the model as an estimate and make the values easy to tune after release; do not claim that the economy is empirically balanced without data.
+
+Verify app restarts, scene changes, reward duplication, insufficient balance, spending and UI synchronization. Also validate the complete coin source/sink audit, per-game reward/cost rebalance, representative no-ad / one-ad / two-ad player profiles, and absence of trivial coin-farming exploits. Save the economy assumptions and final tuning values in `CODEX_PROGRESS.md`. Save progress before Task 2.
 
 # TASK 2 — DAILY MISSIONS
 
@@ -618,13 +675,108 @@ Record actual tests, including:
 9. Missing target app and unsupported-platform behavior is handled safely, with only verified appropriate fallback.
 10. Correct Persian/RTL labels, no duplicate manager, intact progression and player saves.
 
-Do not mark device Intent navigation as tested unless verified on Android. Complete Task 12 and update `CODEX_PROGRESS.md` before the final audit.
+Do not mark device Intent navigation as tested unless verified on Android. Complete Task 12 and update `CODEX_PROGRESS.md` before beginning Task 13.
+
+---
+
+# TASK 13 — WEEKLY STAR LEAGUE (SIMULATED WEEKLY LEADERBOARD)
+
+## Goal
+
+Add a Persian RTL **weekly star league** («لیگ هفتگی») that ranks the real player against a set of **locally simulated competitors** by the number of stars earned during the current week. The league must motivate the player to play **at least about three levels per day** to keep up, reset every week, and show rank changes on the main menu and on the win screen.
+
+This is an **offline, locally simulated** leaderboard: only the real player's stars are real; all other entries are generated competitors. Do not add a server, networking, accounts, or any new SDK for this feature.
+
+## Honesty and naming rules for simulated competitors
+
+- Simulated competitors must use **generic, invented Persian nicknames** (e.g., «ستاره‌چین»، «توپ‌باز_۲۳»، «مسافر شب»). Never use names, photos, or handles of real people, celebrities, or real players, and never collect or display real user data of other people.
+- Do not add UI copy that claims the competitors are real, online, or live players (avoid phrases such as «بازیکنان آنلاین» or «کاربران واقعی»). Neutral wording such as «رقبای این هفته» is acceptable.
+- Keep a configurable flag (default off) to show a small, unobtrusive note that the league is an offline challenge, so the developer can enable it if store policy or brand requirements demand it. Document this choice in `CODEX_PROGRESS.md`.
+
+## Star source and scoring rules
+
+- Inspect the game's actual star system first (each normal level awards 0–3 stars; e.g., a game with 400 levels has a 1200-star campaign maximum). Reuse the existing star result; do not invent a second star calculation.
+- The player's **weekly score = the number of stars earned from winning levels during the current league week.** Example: a 3-star win adds 3, a 2-star win adds 2. Losses add 0.
+- Count stars only from normal level victories, through the same verified win event used by Tasks 2, 11, and 12. Do not count Daily Challenge wins, level skips (Task 11), tutorial levels, or duplicate win events unless explicitly configured.
+- **Anti-farming rule (configurable, default ON):** within one league week, each level contributes at most its **best star count for that week** (max 3). Replaying a level adds only the improvement (e.g., previously 2 stars this week → now 3 stars adds +1). After the weekly reset, levels can contribute again. Without this rule, replaying the easiest level would make the league trivial; document the chosen setting.
+- Use idempotent, transaction-like accounting (unique win/session ID) so app backgrounding, duplicate callbacks, or scene reloads never add stars twice. Persist through the existing save architecture.
+
+## Week boundary and reset
+
+- The league week runs **Saturday 00:00 to Friday 24:00** (i.e., the reset happens at **Friday night midnight**, which is the start of Saturday), matching the Iranian week.
+- Use the project's shared daily-reset/date service and its clock-rollback safeguards (Tasks 2/3/9). Prefer trusted server time if the project already has it; otherwise use local device time and document that local-only time can be manipulated.
+- At reset: set the player's weekly stars to 0, clear the weekly per-level best-star records, generate a new week of competitors, and store a week identifier (e.g., the date of that week's Saturday). Do not touch campaign progress, permanent stars, coins, or other features.
+- If the app was closed across one or more resets, compute the correct current week on the next launch (no catch-up rewards, no double reset).
+
+## Simulated competitor model
+
+All values below must be configurable in a ScriptableObject/settings asset (e.g., `WeeklyLeagueConfig`).
+
+- **League size:** configurable, default **30** entries total (29 competitors + the player).
+- **Deterministic generation:** generate competitors from a stable seed (e.g., week ID + install ID) so the table is identical after restarts and does not need to run in the background. Competitor scores for any moment are calculated from: starting score + sum of daily increments for elapsed days of the week. Persist the seed and week ID; do not re-randomize on reopen.
+- **Daily update:** competitor scores update **once per calendar day** (at the shared day boundary). On each new day of the week, each competitor gains a daily random amount.
+- **Average daily gain:** the competitor field should gain on average about **8 stars per day** (daily gain per competitor randomly in **0–8**, with the distribution tuned so the field average is about 8/day for the leading group; configurable). This means the player needs roughly **three 3-star levels per day (≈9 stars)** to keep pace with or overtake the leading group.
+- **First-install week:** when the game is installed for the first time (any day of the week), generate the current week with the **same rules as a normal weekly reset** (below): the player starts at 0, the leading group starts **50–80 stars ahead**, and the rest start lower. If installation happens mid-week, do **not** add the elapsed days' gains to competitors retroactively; competitors grow only from the install day onward so the new player is not buried on day one. Keep this first-week profile configurable separately (e.g., `firstWeekLeaderMin/Max`) so it can be tuned later.
+- **Every weekly reset afterwards (Saturday morning):** when the player first opens the game in the new week, a group of competitors (configurable, default **5**) is placed **50–80 stars ahead of the player** (random per competitor within that range). The remaining competitors start lower (configurable, default 0–40) so the player can see attainable targets above and below. During the rest of the week, each competitor gains a random **0–8 stars per day** until the week ends.
+- Clamp competitor scores to a realistic maximum (never above the game's real total star count, and never above a configurable weekly cap) so the table never shows impossible values.
+- Rank ties: the player ranks above competitors with the same score (configurable) to avoid demotivating ties; document the rule.
+
+> Note for the implementer: an earlier design started first-week competitors at 321 stars; it was intentionally replaced because a new player at 0 could never catch up in the first week. Do not reintroduce a large fixed starting score for the first week.
+
+## Main-menu entry
+
+- Add a main-menu button styled like the existing main-menu buttons, labeled **«لیگ هفتگی»**, that also displays the player's **current rank**, e.g. **«رتبه ۱۲»** (Persian digits, correct RTL shaping).
+- Update the rank on menu entry, after a win, and after a weekly/day rollover through events, not per-frame polling.
+- Place it without overlapping existing buttons (missions, Other Games, Lucky Wheel, login calendar); make the menu scrollable if necessary (see Final Integration Audit).
+- Opening the league must not trigger any automatic popup or ad, and must respect the centralized popup coordinator (Tasks 3, 8, 9, 12).
+
+## League screen (Persian RTL)
+
+- Title: **«لیگ هفتگی»**, subtitle with remaining time until reset, e.g. **«پایان هفته: ۲ روز و ۵ ساعت»**.
+- A scrollable ranked list showing rank number, avatar/placeholder icon, nickname, and weekly stars with a star icon. Highlight the player's own row («شما») and auto-scroll to it on open.
+- Optional visual emphasis for the top 3 ranks (gold/silver/bronze) using existing art style.
+- A short explanation line, e.g. **«هر ستاره‌ای که این هفته بگیری به امتیازت اضافه می‌شه. جمعه شب ساعت ۲۴ امتیازها صفر می‌شن.»**
+- Close/back button; correct layout on common Android aspect ratios and safe areas.
+- Do not add coin or weekly rank rewards unless explicitly configured; if added later, they must go through Task 1's idempotent wallet transactions and the Task 1 economy audit.
+
+## Win-screen integration
+
+Extend the existing/upgraded win screen from Task 11 (do not create a second win screen) with a compact league section that shows:
+
+- Stars earned in this win and how many were actually added to the weekly score (e.g., **«+۳ ستاره به لیگ هفتگی»**, or **«+۱ ستاره (بهبود رکورد این هفته)»** when the anti-farming rule applies, or a neutral message when 0 were added).
+- The player's new rank and the change since the **last rank the player saw**: **«رتبه‌ات ۴ پله بهتر شد ↑»** / **«رتبه‌ات ۲ پله پایین‌تر رفت ↓»** / **«رتبه‌ات تغییری نکرد»**. Because competitors update daily, the rank can drop even after a win; compute the change against the last displayed rank and store the newly displayed rank.
+- A small, lightweight count-up/arrow animation; it must not delay or cover the 2X button, next-level button, or other result actions.
+- Do not show this section for Daily Challenge wins, skips, or modes excluded from scoring.
+
+## Persistence
+
+Persist via the existing save system: week ID, week seed, first-install flag/week, player weekly stars, per-level weekly best stars, last processed win IDs (bounded), last displayed rank, and last processed day index. Restarting the app, changing scenes, or reopening the screen must never re-randomize competitors or double-count stars.
+
+## Validation
+
+Verify and record the actual checks performed for:
+
+1. First install (on any weekday): player at 0, leading group 50–80 stars ahead, no retroactive gains for elapsed days, rank displayed on main menu.
+2. Daily competitor update happens once per calendar day and is deterministic after restart.
+3. Average competitor growth ≈ 8 stars/day; three 3-star wins per day keep the player competitive.
+4. A 3-star win adds exactly 3 stars; replay rule adds only improvement within the week.
+5. No stars from losses, skips, Daily Challenge, or duplicate win events.
+6. Reset exactly at Friday 24:00 (Saturday 00:00); player stars become 0.
+7. On the first Saturday open, the configured group of competitors is 50–80 stars ahead, then grows 0–8 per day.
+8. App closed across several days/weeks computes the correct current week without double reset.
+9. Clock rollback does not grant extra stars or re-trigger resets incorrectly.
+10. Win screen shows stars earned and correct rank change (up, down, unchanged).
+11. Main-menu button rank updates without per-frame polling and does not overlap other buttons.
+12. Persian/RTL text, Persian digits, star icons and list scrolling render correctly on common aspect ratios.
+13. No conflict with popup coordination, ads, Daily Challenge, login calendar, or the review prompt.
+
+Complete, validate, and record Task 13 in `CODEX_PROGRESS.md` before the final integration audit.
 
 ---
 
 # FINAL INTEGRATION AUDIT
 
-When all twelve tasks are completed or precisely documented as blocked, review their combined behavior:
+When all thirteen tasks are completed or precisely documented as blocked, review their combined behavior:
 
 - Single shared coin wallet for missions, daily challenge, power-ups, wheel and ordinary login rewards.
 - The 10-day consecutive-login streak persists safely, grants at most one claim a day, resets correctly after missed days, and Day 10 temporary reward is applied/expired correctly.
@@ -643,6 +795,7 @@ When all twelve tasks are completed or precisely documented as blocked, review t
 - Before every eligible ad flow, the loading popup appears exactly once, blocks repeated taps safely, and never causes duplicate ad requests.
 - On eligible level-based modes, two consecutive losses on the same level unlock the skip-level option with coin or rewarded-ad fallback.
 - Bazaar/Myket review prompt uses the store-selection field and Android Intent in `BazaarReviewManager.cs`, appears once after an eligible Next Level tap, and never competes with the daily recommendation or scheduled interstitial.
+- Weekly Star League counts only valid weekly stars, resets at Friday 24:00, keeps simulated competitors deterministic, shows rank on the main menu and rank change on the win screen, and never overlaps other modals.
 - Existing game flow, progression and saved player data remain functional.
 - Avoid per-frame polling, redundant event subscriptions, duplicate SDK initialization and heavy effects.
 
@@ -654,7 +807,7 @@ After **each task**, update `CODEX_PROGRESS.md` with status, changed files, actu
 
 At the end, report in **Persian**:
 1. Unity version and game type.
-2. Status of tasks 1–12 (`COMPLETE / BLOCKED / IN_PROGRESS / NOT_STARTED`).
+2. Status of tasks 1–13 (`COMPLETE / BLOCKED / IN_PROGRESS / NOT_STARTED`).
 3. What was implemented per task, including all 25 missions, their goals and coin rewards.
 4. Challenge generation method, time limit, rewarded +30-second continuation, and victory 2X implementation status.
 5. Pre-ad loading popup behavior, minimum display timing, and shared integration status.
@@ -667,7 +820,8 @@ At the end, report in **Persian**:
 12. Created/modified scripts, scenes, prefabs and assets.
 13. Tests actually performed and test results.
 14. Required manual actions, external credentials/data and any unresolved risks.
-15. Exact next step, if anything remains.
+15. Weekly Star League: star-counting rules, competitor simulation values, weekly reset behavior, main-menu rank and win-screen rank-change status.
+16. Exact next step, if anything remains.
 
 # MOST IMPORTANT DIRECTIVE
 
