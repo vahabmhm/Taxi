@@ -31,6 +31,12 @@ namespace EndlessCarChase
         [Tooltip("Passengers whose ride is cut short ( a wrecked taxi ) end the level")]
         public bool failOnLostPassenger = false;
 
+        [Tooltip("The ride request phone: the player can accept one waiting passenger ( rivals leave them alone )")]
+        public bool rideRequests = false;
+
+        [Tooltip("Passengers may ask for something during the ride ( faster, slower, a stop on the way )")]
+        public bool passengerWishes = false;
+
         public TaxiRules Clone()
         {
             TaxiRules copy = (TaxiRules)MemberwiseClone();
@@ -83,6 +89,105 @@ namespace EndlessCarChase
             get { return rules.fareMultiplier; }
         }
 
+        // An accepted ride ( the request phone ) pays this much more
+        public const float AcceptedFareBonus = 1.15f;
+
+        // An accepted passenger waits this many seconds longer
+        public const float AcceptedPatience = 15;
+
+        // A follow ride whose car was lost pays this much of the fare
+        public const float FollowLostFare = 0.5f;
+
+        /// <summary>
+        /// Everything a fare is multiplied by: the rules, the city event ( rush hour ), and for the player the driver
+        /// rank, an accepted ride and a lost follow ride
+        /// </summary>
+        public float FareFor(TaxiCab cab, TaxiPassenger passenger)
+        {
+            float multiplier = rules.fareMultiplier * (TaxiCityEvents.Instance ? TaxiCityEvents.Instance.FareMultiplier : 1);
+
+            if (cab != null && cab.IsPlayer)
+            {
+                multiplier *= TaxiDriverRank.FareMultiplier;
+
+                if (passenger && passenger.accepted) multiplier *= AcceptedFareBonus;
+                if (passenger && passenger.shared) multiplier *= TaxiSharedRide.FareBonus;
+                if (passenger && passenger.followLost) multiplier *= FollowLostFare;
+            }
+
+            return multiplier;
+        }
+
+        // ----- The ride request phone -----
+
+        /// <summary>
+        /// The waiting passenger the player accepted on the request phone ( null if none )
+        /// </summary>
+        public TaxiPassenger Accepted { get; private set; }
+
+        public static event Action<TaxiPassenger> AcceptedGaveUp;
+
+        /// <summary>
+        /// Accepts a waiting passenger ( one at a time: another accepted one is let go ), or lets the accepted one go
+        /// when it's tapped again. False when the passenger can't be accepted
+        /// </summary>
+        public bool ToggleAccept(TaxiPassenger passenger)
+        {
+            if (passenger == null) return false;
+
+            if (passenger == Accepted)
+            {
+                Release(passenger);
+                Accepted = null;
+                return true;
+            }
+
+            if (CanAccept(passenger) == false) return false;
+
+            if (Accepted) Release(Accepted);
+
+            passenger.Accept(AcceptedPatience);
+            passenger.reservedBy = Player;
+
+            Accepted = passenger;
+
+            return true;
+        }
+
+        public bool CanAccept(TaxiPassenger passenger)
+        {
+            return passenger && passenger.IsWaiting && (Player == null || passenger.Seats <= Player.seats);
+        }
+
+        static void Release(TaxiPassenger passenger)
+        {
+            if (passenger == null) return;
+
+            passenger.accepted = false;
+
+            if (passenger.reservedBy && passenger.reservedBy.IsPlayer) passenger.reservedBy = null;
+        }
+
+        void CheckAccepted()
+        {
+            if (Accepted == null) return;
+
+            // Picked up by the player: the bonus stays with the passenger
+            if (Accepted.cab && Accepted.cab.IsPlayer)
+            {
+                Accepted = null;
+                return;
+            }
+
+            if (Accepted.IsWaiting) return;
+
+            TaxiPassenger gone = Accepted;
+
+            Accepted = null;
+
+            if (gone.state == TaxiPassengerState.Leaving && AcceptedGaveUp != null) AcceptedGaveUp(gone);
+        }
+
         // ----- Events -----
 
         public static event Action<TaxiCab, TaxiPassenger> PickedUp;
@@ -94,8 +199,20 @@ namespace EndlessCarChase
 
         public static event Action<TaxiPassenger> VipAppeared;
 
+        // Two passengers on board go the same way ( the one who just got in )
+        public static event Action<TaxiPassenger> SharedRideStarted;
+
         ECCGameController gameController;
         ECCCar rivalPrefab;
+
+        /// <summary>
+        /// The car the rivals ( and the followed car of a follow ride ) are made of
+        /// </summary>
+        public ECCCar RivalPrefab
+        {
+            get { return rivalPrefab; }
+        }
+
         float vipTimer;
         float spawnTimer;
         float rivalTimer;
@@ -124,6 +241,10 @@ namespace EndlessCarChase
             session.rivalPrefab = FindRivalPrefab(controller);
             session.vipTimer = session.rules.vipInterval;
 
+            TaxiDriverRank.RankUp += session.OnRankUp;
+
+            if (session.rules.passengerWishes) TaxiWishes.Create(controller.gameObject);
+
             TaxiHUD.Create(controller, session);
 
             // A few passengers close by right away, so the first one is easy to find
@@ -134,7 +255,16 @@ namespace EndlessCarChase
 
         void OnDestroy()
         {
+            TaxiDriverRank.RankUp -= OnRankUp;
+
             if (Instance == this) Instance = null;
+        }
+
+        public static event Action<int> DriverRankUp;
+
+        void OnRankUp(int rank)
+        {
+            if (DriverRankUp != null) DriverRankUp(rank);
         }
 
         /// <summary>
@@ -177,6 +307,8 @@ namespace EndlessCarChase
             Vector3 center = gameController.playerObject.transform.position;
 
             RemoveFarPassengers(center);
+
+            CheckAccepted();
 
             spawnTimer -= Time.deltaTime;
 
@@ -273,11 +405,54 @@ namespace EndlessCarChase
             return null;
         }
 
+        /// <summary>
+        /// A crowd of waiting passengers on both sidewalks of one street ( the end of a concert ). Returns how many came
+        /// </summary>
+        public int SpawnCrowd(TaxiSpot center, int count, float patience)
+        {
+            if (TaxiCity.IsActive == false) return 0;
+
+            int made = 0;
+            float[] offsets = { 0, 8, -8 };
+
+            foreach (bool side in new[] { true, false })
+            {
+                foreach (float offset in offsets)
+                {
+                    if (made >= count) return made;
+
+                    TaxiSpot spot = TaxiCity.SpotNear(center.zone + center.streetDirection * offset, side);
+
+                    if (IsFree(spot.zone, 6.5f) == false) continue;
+
+                    TaxiPassengerKind kind = made == 0 ? TaxiPassengerKind.Tourist : (UnityEngine.Random.value < 0.25f ? TaxiPassengerKind.Hurry : TaxiPassengerKind.Normal);
+
+                    Vector2 ride = TaxiPassenger.RideDistance(kind);
+                    TaxiSpot destination = TaxiCity.RandomSpot(spot.zone, ride.x * 0.7f, ride.y * 0.7f);
+
+                    TaxiPassenger passenger = TaxiPassenger.Create(kind, spot, destination);
+
+                    if (passenger == null) continue;
+
+                    passenger.patience = passenger.patienceMax = patience + TaxiDriverRank.ExtraPatience;
+
+                    made++;
+                }
+            }
+
+            return made;
+        }
+
         static bool IsFree(Vector3 zone)
+        {
+            return IsFree(zone, 12);
+        }
+
+        static bool IsFree(Vector3 zone, float spacing)
         {
             foreach (TaxiPassenger passenger in TaxiPassenger.All)
             {
-                if (passenger && ECCRuntimeVisuals.FlatDistance(passenger.pickup.zone, zone) < 12) return false;
+                if (passenger && ECCRuntimeVisuals.FlatDistance(passenger.pickup.zone, zone) < spacing) return false;
             }
 
             return true;
@@ -301,7 +476,7 @@ namespace EndlessCarChase
             {
                 TaxiPassenger passenger = TaxiPassenger.All[index];
 
-                if (passenger && passenger.IsWaiting && passenger.kind != TaxiPassengerKind.Vip && ECCRuntimeVisuals.FlatDistance(passenger.transform.position, center) > 160) Destroy(passenger.gameObject);
+                if (passenger && passenger.IsWaiting && passenger.kind != TaxiPassengerKind.Vip && passenger.accepted == false && ECCRuntimeVisuals.FlatDistance(passenger.transform.position, center) > 160) Destroy(passenger.gameObject);
             }
         }
 
@@ -322,6 +497,9 @@ namespace EndlessCarChase
             {
                 if (passenger == null || passenger.IsWaiting == false || passenger.Seats > cab.FreeSeats) continue;
 
+                // The rivals leave the player's accepted ride alone, and can't follow a car for a passenger
+                if (cab.IsPlayer == false && (passenger.accepted || passenger.kind == TaxiPassengerKind.Follow)) continue;
+
                 float distance = TaxiCity.StreetDistance(position, passenger.pickup.zone);
 
                 if (distance > 140 && passenger.kind != TaxiPassengerKind.Vip) continue;
@@ -329,6 +507,9 @@ namespace EndlessCarChase
                 float score = distance;
 
                 if (passenger.kind == TaxiPassengerKind.Vip) score -= 1000;
+
+                // The player's accepted ride comes first
+                if (cab.IsPlayer && passenger.accepted) score -= 2000;
 
                 if (passenger.reservedBy && passenger.reservedBy != cab) score += cab.IsPlayer ? 0 : 60;
 
@@ -482,6 +663,14 @@ namespace EndlessCarChase
                 }
 
                 TaxiAudio.Play(TaxiAudio.Pickup);
+
+                if (passenger == Accepted) Accepted = null;
+
+                if (passenger.kind == TaxiPassengerKind.Follow) TaxiFollowRide.Begin(this, cab, passenger);
+
+                if (TaxiSharedRide.OnBoarded(cab, passenger) && SharedRideStarted != null) SharedRideStarted(passenger);
+
+                if (TaxiWishes.Instance) TaxiWishes.Instance.OnBoarded(passenger);
             }
             else if (Player)
             {
@@ -518,6 +707,9 @@ namespace EndlessCarChase
                 if (rating >= 5) ECCMissions.Report(ECCMissionType.FiveStarRides, 1);
                 if (passenger.kind == TaxiPassengerKind.Vip) ECCMissions.Report(ECCMissionType.DeliverVips, 1);
                 if (dropQuality == 2) ECCMissions.Report(ECCMissionType.PerfectStops, 1);
+
+                // Every ride counts for the driver's rank
+                TaxiDriverRank.RecordRide(rating);
 
                 TaxiAudio.Play(rating >= 3 ? TaxiAudio.Cash : TaxiAudio.Bad);
             }

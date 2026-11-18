@@ -110,7 +110,8 @@ namespace EndlessCarChase
 
         protected override bool CanTake(TaxiPassenger passenger)
         {
-            return passenger == targetPassenger;
+            // The player's accepted ride is theirs
+            return passenger == targetPassenger && passenger.accepted == false;
         }
 
         protected override void OnPassengerBoarded(TaxiPassenger passenger)
@@ -154,7 +155,7 @@ namespace EndlessCarChase
 
             retargetTime -= Time.deltaTime;
 
-            bool lost = targetPassenger == null || targetPassenger.IsWaiting == false;
+            bool lost = targetPassenger == null || targetPassenger.IsWaiting == false || targetPassenger.accepted;
 
             if (lost == false && retargetTime > 0) return;
 
@@ -219,20 +220,22 @@ namespace EndlessCarChase
 
                 if (reckless == false && TaxiTrafficLights.Instance && TaxiTrafficLights.Instance.MustStopAhead(position, car.transform.forward, 4 + car.CurrentSpeed * 0.5f, out lineDistance)) wanted = 0;
 
-                if (CarAhead(position)) wanted = 0;
+                if (TrafficAhead(car)) wanted = 0;
             }
 
             car.throttle = Mathf.MoveTowards(car.throttle, wanted, (wanted < car.throttle ? brakeRate : accelerateRate) * Time.deltaTime);
         }
 
         /// <summary>
-        /// A traffic car close ahead in the lane
+        /// A traffic car close ahead in the lane of an AI car
         /// </summary>
-        bool CarAhead(Vector3 position)
+        public static bool TrafficAhead(ECCCar car)
         {
             ECCTraffic traffic = ECCTraffic.Instance;
 
-            if (traffic == null) return false;
+            if (traffic == null || car == null) return false;
+
+            Vector3 position = car.transform.position;
 
             Vector3 forward = car.transform.forward;
             Vector3 right = TaxiCity.Right(forward);

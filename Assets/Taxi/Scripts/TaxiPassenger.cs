@@ -11,6 +11,7 @@ namespace EndlessCarChase
         Tourist = 3,  // «توریست»: a far destination, pays more
         Family = 4,   // «خانواده»: three people, need a car with three free seats
         Grumpy = 5,   // «بدخلق»: every bump costs more of the tip
+        Follow = 6,   // «دنبال اون ماشین برو!»: follow a car without losing it or being seen; the destination is where it stops
     }
 
     public enum TaxiPassengerState { Waiting, Boarding, Riding, Leaving }
@@ -46,6 +47,30 @@ namespace EndlessCarChase
 
         // The cab that is on its way to this passenger ( a rival's plan, so two rivals don't chase the same person )
         internal TaxiCab reservedBy;
+
+        // The player accepted this ride on the request phone: rivals leave them alone and the fare has a bonus
+        internal bool accepted;
+
+        // Follow passengers: the destination isn't known until the followed car stops ( no ring, no drop-off )
+        internal bool dropoffHidden;
+
+        // Follow passengers: the followed car was lost ( the ride ends close by, for less )
+        internal bool followLost;
+
+        // A shared ride: another passenger on board goes the same way ( both pay a bonus )
+        internal bool shared;
+
+        // The passenger's wish during the ride ( TaxiWishes ), and the seconds until they ask ( below 0: never )
+        internal TaxiWish wish;
+        internal float wishTimer = -1;
+
+        /// <summary>
+        /// Stars a kept or broken wish adds to the rating
+        /// </summary>
+        public int WishStars
+        {
+            get { return wish != null ? wish.Stars : 0; }
+        }
 
         public static readonly List<TaxiPassenger> All = new List<TaxiPassenger>();
 
@@ -94,6 +119,7 @@ namespace EndlessCarChase
                 case TaxiPassengerKind.Tourist: return TaxiColors.Tourist;
                 case TaxiPassengerKind.Family: return TaxiColors.Family;
                 case TaxiPassengerKind.Grumpy: return TaxiColors.Grumpy;
+                case TaxiPassengerKind.Follow: return TaxiColors.Follow;
                 default: return TaxiColors.Normal;
             }
         }
@@ -107,6 +133,7 @@ namespace EndlessCarChase
                 case TaxiPassengerKind.Tourist: return "توریست";
                 case TaxiPassengerKind.Family: return "خانواده";
                 case TaxiPassengerKind.Grumpy: return "مسافر بدخلق";
+                case TaxiPassengerKind.Follow: return "مسافر تعقیب";
                 default: return "مسافر";
             }
         }
@@ -123,6 +150,7 @@ namespace EndlessCarChase
                 case TaxiPassengerKind.Tourist: return 1.5f;
                 case TaxiPassengerKind.Family: return 2.2f;
                 case TaxiPassengerKind.Grumpy: return 1.2f;
+                case TaxiPassengerKind.Follow: return 2.5f;
                 default: return 1;
             }
         }
@@ -153,7 +181,11 @@ namespace EndlessCarChase
             passenger.pickup = spot;
             passenger.dropoff = destination;
             passenger.patience = kind == TaxiPassengerKind.Hurry ? Random.Range(24f, 32f) : (kind == TaxiPassengerKind.Vip ? 45 : Random.Range(45f, 70f));
+            // A well rated driver is worth waiting for
+            passenger.patience += TaxiDriverRank.ExtraPatience;
             passenger.patienceMax = passenger.patience;
+
+            passenger.dropoffHidden = kind == TaxiPassengerKind.Follow;
 
             if (kind == TaxiPassengerKind.Hurry) passenger.rideLimit = TaxiCity.StreetDistance(spot.zone, destination.zone) / 8.5f + 8;
 
@@ -307,6 +339,16 @@ namespace EndlessCarChase
         }
 
         /// <summary>
+        /// The player accepted the ride on the request phone: they wait longer for the taxi
+        /// </summary>
+        public void Accept(float extraPatience)
+        {
+            accepted = true;
+            patience += extraPatience;
+            patienceMax = Mathf.Max(patienceMax, patience);
+        }
+
+        /// <summary>
         /// Waving at a taxi that honked: a short cheer
         /// </summary>
         public void Wave()
@@ -406,6 +448,8 @@ namespace EndlessCarChase
         /// </summary>
         public void ShowDestination()
         {
+            if (dropoffHidden) return;
+
             if (beacon == null) beacon = TaxiMarkers.CreateBeacon(dropoff.zone, TaxiCab.ZoneRadius, KindColor);
         }
 

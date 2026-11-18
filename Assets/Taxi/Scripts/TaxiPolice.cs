@@ -255,6 +255,13 @@ namespace EndlessCarChase
 
             GetPenalty(violation, out fine, out heat);
 
+            // A police crackdown ( a city event of the shift ) doubles the fines
+            if (TaxiCityEvents.Instance)
+            {
+                fine = Mathf.RoundToInt(fine * TaxiCityEvents.Instance.FineMultiplier);
+                heat *= TaxiCityEvents.Instance.HeatMultiplier;
+            }
+
             Violations++;
             PendingFine += fine;
             Heat = Mathf.Min(Heat + heat, starHeat[starHeat.Length - 1] + 60);

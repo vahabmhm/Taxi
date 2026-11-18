@@ -21,6 +21,9 @@ namespace EndlessCarChase
         Text punchText;
         float punchTime;
 
+        Image eventChip;
+        Text eventText;
+
         const float BarWidth = 360;
 
         public static TaxiShiftHUD Create(ECCGameController controller, ECCEndlessMode mode)
@@ -56,6 +59,34 @@ namespace EndlessCarChase
             passengersText = ECCRuntimeUI.CreateText("Passengers", panel, string.Empty, 24, top, new Vector2(100, -82), new Vector2(200, 32), Color.white);
 
             punchText = ECCRuntimeUI.CreateText("Punch", panel, string.Empty, 30, top, new Vector2(0, -130), new Vector2(300, 40), ECCRuntimeUI.GoodColor);
+
+            // The city event and its time left, under the clock
+            eventChip = ECCRuntimeUI.CreateImage("Event", panel, top, new Vector2(0, -130), new Vector2(330, 34), Color.white);
+            eventChip.raycastTarget = false;
+            ECCCarTheme.Round(eventChip);
+
+            eventText = ECCRuntimeUI.CreateText("Text", eventChip.transform, string.Empty, 20, center, Vector2.zero, new Vector2(320, 34), Color.white);
+            eventChip.gameObject.SetActive(false);
+        }
+
+        void UpdateEvent()
+        {
+            TaxiCityEvents events = TaxiCityEvents.Instance;
+
+            bool active = events && events.Active != TaxiCityEventType.None;
+
+            eventChip.gameObject.SetActive(active);
+
+            // The "+12 ثانیه" punch goes under the event chip while there is one
+            punchText.rectTransform.anchoredPosition = new Vector2(0, active ? -172 : -130);
+
+            if (active == false) return;
+
+            Color color = TaxiCityEvents.GetColor(events.Active);
+
+            eventChip.color = new Color(color.r * 0.75f, color.g * 0.75f, color.b * 0.75f, 0.9f);
+
+            ECCRuntimeUI.SetText(eventText, TaxiCityEvents.GetName(events.Active) + ": " + ECCUIKit.PersianDigits(Mathf.CeilToInt(events.TimeLeft)) + " ثانیه");
         }
 
         public void Punch(string text)
@@ -93,6 +124,8 @@ namespace EndlessCarChase
             TaxiSession session = TaxiSession.Instance;
 
             ECCRuntimeUI.SetText(passengersText, "مسافر: " + ECCUIKit.PersianDigits(session ? session.PlayerDeliveries : 0));
+
+            UpdateEvent();
 
             if (punchTime > 0)
             {

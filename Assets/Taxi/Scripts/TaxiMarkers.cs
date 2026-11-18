@@ -126,6 +126,10 @@ namespace EndlessCarChase
         public static readonly Color Tourist = new Color(0.55f, 0.45f, 1);
         public static readonly Color Family = new Color(0.35f, 1, 0.45f);
         public static readonly Color Grumpy = new Color(0.65f, 0.65f, 0.7f);
+        public static readonly Color Follow = new Color(1, 0.35f, 0.8f);
+        public static readonly Color Gold = new Color(1, 0.86f, 0.3f);
+        public static readonly Color Suspect = new Color(0.16f, 0.16f, 0.2f);
+        public static readonly Color Concert = new Color(0.75f, 0.35f, 1);
 
         public static readonly Color[] Rivals =
         {
