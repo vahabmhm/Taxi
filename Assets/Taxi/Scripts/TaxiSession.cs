@@ -34,6 +34,9 @@ namespace EndlessCarChase
         [Tooltip("The ride request phone: the player can accept one waiting passenger ( rivals leave them alone )")]
         public bool rideRequests = false;
 
+        [Tooltip("Passengers may ask for something during the ride ( faster, slower, a stop on the way )")]
+        public bool passengerWishes = false;
+
         public TaxiRules Clone()
         {
             TaxiRules copy = (TaxiRules)MemberwiseClone();
@@ -108,6 +111,7 @@ namespace EndlessCarChase
                 multiplier *= TaxiDriverRank.FareMultiplier;
 
                 if (passenger && passenger.accepted) multiplier *= AcceptedFareBonus;
+                if (passenger && passenger.shared) multiplier *= TaxiSharedRide.FareBonus;
                 if (passenger && passenger.followLost) multiplier *= FollowLostFare;
             }
 
@@ -195,6 +199,9 @@ namespace EndlessCarChase
 
         public static event Action<TaxiPassenger> VipAppeared;
 
+        // Two passengers on board go the same way ( the one who just got in )
+        public static event Action<TaxiPassenger> SharedRideStarted;
+
         ECCGameController gameController;
         ECCCar rivalPrefab;
 
@@ -235,6 +242,8 @@ namespace EndlessCarChase
             session.vipTimer = session.rules.vipInterval;
 
             TaxiDriverRank.RankUp += session.OnRankUp;
+
+            if (session.rules.passengerWishes) TaxiWishes.Create(controller.gameObject);
 
             TaxiHUD.Create(controller, session);
 
@@ -658,6 +667,10 @@ namespace EndlessCarChase
                 if (passenger == Accepted) Accepted = null;
 
                 if (passenger.kind == TaxiPassengerKind.Follow) TaxiFollowRide.Begin(this, cab, passenger);
+
+                if (TaxiSharedRide.OnBoarded(cab, passenger) && SharedRideStarted != null) SharedRideStarted(passenger);
+
+                if (TaxiWishes.Instance) TaxiWishes.Instance.OnBoarded(passenger);
             }
             else if (Player)
             {

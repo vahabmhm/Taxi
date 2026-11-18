@@ -221,6 +221,9 @@ namespace EndlessCarChase
 
                 string ride = passenger.kind == TaxiPassengerKind.Follow ? "سفر: تعقیب" : "سفر " + ECCUIKit.PersianDigits(Mathf.RoundToInt(TaxiCity.StreetDistance(passenger.pickup.zone, passenger.dropoff.zone))) + " م";
 
+                // A passenger going the same way as the one on board: the shared ride matters more than the ride's length
+                if (TaxiSharedRide.FitsRiding(driver, passenger)) ride = "هم‌مسیر، اشتراکی";
+
                 ECCRuntimeUI.SetText(row.info, "تا مسافر " + ECCUIKit.PersianDigits(Mathf.RoundToInt(TaxiCity.StreetDistance(driver.car.transform.position, passenger.pickup.zone))) + " م · " + ride);
 
                 if (passenger.accepted)

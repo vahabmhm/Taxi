@@ -79,6 +79,7 @@ namespace EndlessCarChase
             TaxiPolice.StarsChanged += OnStarsChanged;
             TaxiSession.DriverRankUp += OnRankUp;
             TaxiSession.AcceptedGaveUp += OnAcceptedGaveUp;
+            TaxiSession.SharedRideStarted += OnSharedRide;
         }
 
         void OnDisable()
@@ -92,6 +93,7 @@ namespace EndlessCarChase
             TaxiPolice.StarsChanged -= OnStarsChanged;
             TaxiSession.DriverRankUp -= OnRankUp;
             TaxiSession.AcceptedGaveUp -= OnAcceptedGaveUp;
+            TaxiSession.SharedRideStarted -= OnSharedRide;
         }
 
         void OnDestroy()
@@ -306,6 +308,18 @@ namespace EndlessCarChase
             hornFace.color = driver && driver.CanHonk ? TaxiColors.PlayerYellow : new Color(0.6f, 0.5f, 0.2f);
         }
 
+        static bool SharedNearby(TaxiDriver driver)
+        {
+            Vector3 position = driver.car.transform.position;
+
+            foreach (TaxiPassenger passenger in TaxiPassenger.All)
+            {
+                if (passenger && passenger.IsWaiting && ECCRuntimeVisuals.FlatDistance(position, passenger.pickup.zone) < 45 && TaxiSharedRide.FitsRiding(driver, passenger)) return true;
+            }
+
+            return false;
+        }
+
         static bool NearRing(TaxiDriver driver)
         {
             Vector3 position = driver.car.transform.position;
@@ -371,7 +385,10 @@ namespace EndlessCarChase
 
             bool following = destination && driver.riding.Exists(passenger => passenger && passenger.dropoffHidden);
 
-            ECCRuntimeUI.SetText(arrowText, (following ? "ماشین " : (destination ? "مقصد " : "مسافر ")) + Digits(Mathf.RoundToInt(distance)) + " متر");
+            Vector3 stop;
+            bool stopping = TaxiWishes.Instance && TaxiWishes.Instance.GetStop(out stop);
+
+            ECCRuntimeUI.SetText(arrowText, (stopping ? "توقف " : (following ? "ماشین " : (destination ? "مقصد " : "مسافر "))) + Digits(Mathf.RoundToInt(distance)) + " متر");
         }
 
         void UpdateRide(TaxiDriver driver)
@@ -428,7 +445,9 @@ namespace EndlessCarChase
 
             if (driver.riding.Count > 1) title += " و " + Digits(driver.riding.Count - 1) + " مسافر دیگه";
 
-            int rating = TaxiPassenger.Rate(first.kind, first.bumps, first.IsLate, first.pickupQuality, 2);
+            if (first.shared) title += " · اشتراکی";
+
+            int rating = Mathf.Clamp(TaxiPassenger.Rate(first.kind, first.bumps, first.IsLate, first.pickupQuality, 2) + first.WishStars, 1, 5);
 
             title += "  ·  " + Digits(rating) + " ستاره";
 
@@ -446,7 +465,15 @@ namespace EndlessCarChase
 
             ECCRuntimeUI.SetText(rideDetail, detail);
 
-            if (follow && follow.IsLeading)
+            TaxiPassenger wishing = TaxiWishes.Instance ? TaxiWishes.Instance.Current : null;
+
+            if (wishing && wishing.wish != null)
+            {
+                hint = "«" + TaxiWish.Quote(wishing.wish.type, wishing.kind) + "» " + Digits(Mathf.CeilToInt(Mathf.Max(0, wishing.wish.timeLeft))) + " ثانیه";
+
+                if (wishing.wish.type == TaxiWishType.Gentle && driver.car.throttle > TaxiWish.GentleThrottle) hint = "تندی! ترمز رو کم‌کم بگیر";
+            }
+            else if (follow && follow.IsLeading)
             {
                 float gap = follow.Distance;
 
@@ -457,6 +484,9 @@ namespace EndlessCarChase
             }
             else if (first.kind == TaxiPassengerKind.Grumpy) hint = "مسافر بدخلقه؛ آروم رانندگی کن";
             else if (first.IsLate == false && first.rideLimit > 0 && first.RideTimeLeft < 10) hint = "عجله کن، مسافر دیرش شده!";
+
+            // A free seat and a passenger close by who goes the same way
+            if (string.IsNullOrEmpty(hint) && driver.FreeSeats > 0 && SharedNearby(driver)) hint = "یه مسافر هم‌مسیر این نزدیکیه؛ سفر اشتراکی!";
 
             ECCRuntimeUI.SetText(hintText, hint);
         }
@@ -556,6 +586,7 @@ namespace EndlessCarChase
 
             if (dropQuality == 2) detail += "  ·  توقف عالی!";
             if (passenger.accepted) detail += "  ·  پاداش سفر قبول‌شده";
+            if (passenger.shared) detail += "  ·  سفر اشتراکی";
             if (passenger.kind == TaxiPassengerKind.Follow) detail += passenger.followLost ? "  ·  ماشین گم شد" : "  ·  تعقیب موفق!";
             if (session.StreakMultiplier > 1) detail += "  ·  کمبو ×" + Digits(session.StreakMultiplier);
 
@@ -571,6 +602,11 @@ namespace EndlessCarChase
             ECCHintBanner.Show("Icons/crown", TaxiColors.Gold, "رتبه‌ی جدید: " + reached.title, reached.perk, 3, ECCHintBanner.Kind.Urgent);
 
             ECCRewardFx.Confetti();
+        }
+
+        void OnSharedRide(TaxiPassenger passenger)
+        {
+            ECCHintBanner.Show("Icons/heart", ECCRuntimeUI.GoodColor, "سفر اشتراکی!", "مسافرها هم‌مسیرن؛ کرایه‌ی هر دو " + Digits(Mathf.RoundToInt((TaxiSharedRide.FareBonus - 1) * 100)) + "٪ بیشتره", 2.4f, ECCHintBanner.Kind.Urgent);
         }
 
         void OnAcceptedGaveUp(TaxiPassenger passenger)

@@ -116,6 +116,7 @@ namespace EndlessCarChase.Modes
                 police = true,
                 fareMultiplier = 1,
                 rideRequests = true,
+                passengerWishes = true,
             };
         }
 

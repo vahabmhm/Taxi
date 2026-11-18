@@ -117,3 +117,52 @@ public static partial class T {
     UnityEngine.Object.Destroy(ev.gameObject);
   }
 }
+public static partial class T {
+  static void TestTaxiSharedRide(){
+    var from = new Vector3(3,0,0);
+    Check(TaxiSharedRide.AreCompatible(from, new Vector3(3,0,300), new Vector3(45,0,320)), "two destinations the same way: shared");
+    Check(!TaxiSharedRide.AreCompatible(from, new Vector3(3,0,300), new Vector3(3,0,-300)), "opposite ways: not shared");
+    Check(!TaxiSharedRide.AreCompatible(from, new Vector3(300,0,0), new Vector3(3,0,300)), "at a right angle: not shared");
+    CleanTaxi();
+    var carObj = new GameObject("D").AddComponent<ECCCar>(); carObj.transform.position = from;
+    var driver = carObj.gameObject.AddComponent<TaxiDriver>(); driver.car = carObj; driver.seats = 2;
+    var a = MakePassenger(TaxiPassengerKind.Normal, from); a.dropoff.zone = new Vector3(3,0,300); a.state = TaxiPassengerState.Riding; driver.riding.Add(a);
+    var b = MakePassenger(TaxiPassengerKind.Normal, new Vector3(3,0,20)); b.dropoff.zone = new Vector3(45,0,330);
+    var c = MakePassenger(TaxiPassengerKind.Normal, new Vector3(3,0,20)); c.dropoff.zone = new Vector3(3,0,-280);
+    Check(TaxiSharedRide.FitsRiding(driver, b) && !TaxiSharedRide.FitsRiding(driver, c), "the phone and the hint know who goes the same way");
+    var f = MakePassenger(TaxiPassengerKind.Follow, new Vector3(3,0,20)); f.dropoffHidden = true;
+    Check(!TaxiSharedRide.FitsRiding(driver, f), "a follow ride is never shared");
+    b.state = TaxiPassengerState.Riding; driver.riding.Add(b);
+    Check(TaxiSharedRide.OnBoarded(driver, b) && a.shared && b.shared, "boarding the second one makes a shared ride");
+    var session = new GameObject("S").AddComponent<TaxiSession>();
+    var lone = MakePassenger(TaxiPassengerKind.Normal, from);
+    Check(Mathf.Abs(session.FareFor(driver, b)/session.FareFor(driver, lone) - TaxiSharedRide.FareBonus) < 0.001f, "shared riders pay the bonus");
+    driver.riding.Clear(); CleanTaxi();
+  }
+
+  static void TestTaxiWishes(){
+    Check(TaxiWish.PickFor(TaxiPassengerKind.Follow,0.5f)==TaxiWishType.None && TaxiWish.PickFor(TaxiPassengerKind.Hurry,0.5f)==TaxiWishType.None, "follow and hurry passengers have no wish");
+    Check(TaxiWish.PickFor(TaxiPassengerKind.Grumpy,0.9f)==TaxiWishType.Gentle && TaxiWish.PickFor(TaxiPassengerKind.Tourist,0.1f)==TaxiWishType.Stop, "a grumpy one wants a gentle ride, a tourist a photo stop");
+    var kinds = new System.Collections.Generic.HashSet<TaxiWishType>(); for (float r=0;r<1;r+=0.05f) kinds.Add(TaxiWish.PickFor(TaxiPassengerKind.Normal,r));
+    Check(kinds.Count==3, "normal passengers ask all three");
+    foreach (TaxiWishType t in new[]{TaxiWishType.Hurry,TaxiWishType.Gentle,TaxiWishType.Stop}) Check(!string.IsNullOrEmpty(TaxiWish.Quote(t,TaxiPassengerKind.Normal)) && !string.IsNullOrEmpty(TaxiWish.Explain(t)), "Persian text for "+t);
+    var h = TaxiWish.Create(TaxiWishType.Hurry, 180);
+    Check(Mathf.Abs(h.timeLeft-(180/TaxiWish.HurrySpeed+TaxiWish.HurryExtra))<0.01f, "hurry time from the distance left");
+    h.Step(5,1,false,false); h.Arrive(); Check(h.state==TaxiWishState.Done && h.Stars==1, "hurry: in time is a star more");
+    h = TaxiWish.Create(TaxiWishType.Hurry, 90); h.Step(30,1,false,false); h.Arrive(); Check(h.state==TaxiWishState.Failed && h.Stars==-1, "hurry: late is a star less");
+    var g = TaxiWish.Create(TaxiWishType.Gentle, 300); for (int i=0;i<16;i++) g.Step(1,0.5f,false,false);
+    Check(g.state==TaxiWishState.Done, "gentle: slow for 15 s");
+    g = TaxiWish.Create(TaxiWishType.Gentle, 300); g.Step(1,0.5f,false,false); g.Step(1,1,false,false); g.Step(1,1,false,false); g.Step(1,1,false,false);
+    Check(g.state==TaxiWishState.Failed, "gentle: too fast for more than 2.5 s fails");
+    g = TaxiWish.Create(TaxiWishType.Gentle, 300); g.Step(1,1,false,false); g.Step(1,0.3f,false,false); Check(g.IsActive, "gentle: a short burst is forgiven");
+    g.Step(0.1f,0.3f,true,false); Check(g.state==TaxiWishState.Failed, "gentle: a bump fails");
+    g = TaxiWish.Create(TaxiWishType.Gentle, 300); g.Step(3,0.3f,false,false); g.Arrive(); Check(g.state==TaxiWishState.Done, "gentle: arriving gently counts");
+    var s = TaxiWish.Create(TaxiWishType.Stop, 300); s.Step(1,0,false,true); s.Step(0.3f,1,false,false); s.Step(1,0,false,true);
+    Check(s.IsActive, "stop: the stand must be 1.5 s in one go");
+    s.Step(0.6f,0,false,true); Check(s.state==TaxiWishState.Done, "stop: standing in the ring keeps the wish");
+    s = TaxiWish.Create(TaxiWishType.Stop, 300); s.Arrive(); Check(s.state==TaxiWishState.Failed, "stop: skipped on the way is a star less");
+    s = TaxiWish.Create(TaxiWishType.Stop, 300); s.Step(41,1,false,false); Check(s.state==TaxiWishState.Failed, "stop: too late");
+    var done = TaxiWish.Create(TaxiWishType.Gentle, 300); done.Step(16,0,false,false); done.Arrive(); Check(done.state==TaxiWishState.Done, "a settled wish stays settled");
+    Check(ECCEndlessMode.ShiftRules(60,2,70,true).passengerWishes, "wishes come in the shift");
+  }
+}

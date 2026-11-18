@@ -57,6 +57,21 @@ namespace EndlessCarChase
         // Follow passengers: the followed car was lost ( the ride ends close by, for less )
         internal bool followLost;
 
+        // A shared ride: another passenger on board goes the same way ( both pay a bonus )
+        internal bool shared;
+
+        // The passenger's wish during the ride ( TaxiWishes ), and the seconds until they ask ( below 0: never )
+        internal TaxiWish wish;
+        internal float wishTimer = -1;
+
+        /// <summary>
+        /// Stars a kept or broken wish adds to the rating
+        /// </summary>
+        public int WishStars
+        {
+            get { return wish != null ? wish.Stars : 0; }
+        }
+
         public static readonly List<TaxiPassenger> All = new List<TaxiPassenger>();
 
         const string ModelPath = "TaxiPeople/PlayerModel";

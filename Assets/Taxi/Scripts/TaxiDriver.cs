@@ -189,6 +189,18 @@ namespace EndlessCarChase
             Vector3 position = car.transform.position;
             float best = float.MaxValue;
 
+            // A passenger's stop on the way comes first
+            Vector3 stop;
+
+            if (TaxiWishes.Instance && TaxiWishes.Instance.GetStop(out stop))
+            {
+                target = stop;
+                guideColor = TaxiWishes.StopColor;
+                isDestination = true;
+
+                return true;
+            }
+
             foreach (TaxiPassenger passenger in riding)
             {
                 if (passenger == null) continue;
