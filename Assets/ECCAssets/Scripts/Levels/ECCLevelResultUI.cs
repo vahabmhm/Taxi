@@ -377,7 +377,7 @@ namespace EndlessCarChase.Levels
 
             Close();
 
-            if (wasVictory) ECCPostVictoryFlow.Leave(isNextLevel, navigate);
+            if (wasVictory) ECCPostVictoryFlow.Leave(isNextLevel, navigate, doubled);
             else navigate();
         }
 

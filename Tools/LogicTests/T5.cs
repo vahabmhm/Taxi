@@ -1,3 +1,4 @@
+using EndlessCarChase.Levels;
 using System; using System.Linq; using UnityEngine; using EndlessCarChase;
 // Task 5: AdMediator ( rotation / fallback used by AdsManagerNew ) with stand-in networks. Simulated, not real SDKs
 public class FakeNet : IAdNetwork {
@@ -63,21 +64,53 @@ public static partial class T {
   }
 }
 public static partial class T {
-  static void TestInterstitialEveryFourNextLevels(){
+  static void PassLevels(int count){ var all = ECCLevelCatalog.Instance.AllLevels; for (int i=0;i<count;i++) ECCSave.SetStars(all[i].id, 1); }
+  static void TestInterstitialSchedule(){
     ECCSave.Data.recommendShownDay = ECCDaily.Today; ECCSave.Data.reviewPromptShown = true; // keep the other transition popups away
-    var fake = FakeAds.Install(); fake.interstitialReady = true; int navigations = 0;
-    for (int i = 0; i < 3; i++) { ECCPostVictoryFlow.Leave(true, () => navigations++); Coroutine.Run(0.1f); }
-    Check(navigations==3 && fake.interstitials==0 && !ECCAdLoadingPopup.IsOpen, "Next Level 1-3: no interstitial, no loading popup");
-    ECCPostVictoryFlow.Leave(false, () => navigations++); Check(navigations==4 && fake.interstitials==0, "Retry/Menu after a win doesn't count or show");
-    ECCPostVictoryFlow.Leave(true, () => navigations++);
-    Check(navigations==4 && ECCAdLoadingPopup.IsOpen, "4th Next Level: loading popup, navigation waits for the ad");
-    ECCPostVictoryFlow.Leave(true, () => navigations++); Check(navigations==4, "repeated tap while the ad runs ignored");
-    Coroutine.Run(2.3f); Check(fake.interstitials==1 && navigations==5 && ECCSave.Data.levelsSinceInterstitial==0, "interstitial shown once, then the next level loads, counter reset");
+    var fake = FakeAds.Install(); fake.interstitialReady = true; int nav = 0;
+    Check(ECCInterstitialSchedule.IntervalFor(0)==0 && ECCInterstitialSchedule.IntervalFor(10)==0 && ECCInterstitialSchedule.IntervalFor(11)==4 && ECCInterstitialSchedule.IntervalFor(50)==4 && ECCInterstitialSchedule.IntervalFor(51)==3, "tiers: none through 10, every 4 up to 50, every 3 after");
+    // Levels 1-10: never
+    for (int i=1;i<=10;i++){ PassLevels(i); ECCInterstitialSchedule.RecordWin("w"+i); ECCPostVictoryFlow.Leave(true, ()=>nav++); Coroutine.Run(2.5f); }
+    Check(fake.interstitials==0 && nav==10 && ECCSave.Data.levelsSinceInterstitial==0, "no interstitial through level 10, wins there don't count");
+    // After level 10: every 4 completed levels
+    for (int i=11;i<=13;i++){ PassLevels(i); ECCInterstitialSchedule.RecordWin("w"+i); ECCPostVictoryFlow.Leave(true, ()=>nav++); Coroutine.Run(2.5f); }
+    Check(fake.interstitials==0 && !ECCInterstitialSchedule.IsDue, "levels 11-13: not yet");
+    PassLevels(14); ECCInterstitialSchedule.RecordWin("w14"); ECCInterstitialSchedule.RecordWin("w14");
+    Check(ECCInterstitialSchedule.IsDue && ECCSave.Data.levelsSinceInterstitial==4, "4th completed level after 10: due ( a duplicate report counted once )");
+    ECCPostVictoryFlow.Leave(false, ()=>nav++); Check(ECCAdLoadingPopup.IsOpen && ECCPostVictoryFlow.InterstitialSelected, "shown on any transition out of the win ( Menu too ), loading popup first");
+    ECCPostVictoryFlow.Leave(false, ()=>nav++); Coroutine.Run(2.5f);
+    Check(fake.interstitials==1 && ECCSave.Data.levelsSinceInterstitial==0 && nav==14, "shown once, counter reset only after the display, repeated tap ignored");
     Restart(); Check(ECCSave.Data.levelsSinceInterstitial==0, "counter saved");
-    for (int i = 0; i < 3; i++) ECCPostVictoryFlow.Leave(true, () => navigations++);
-    fake.interstitialReady = false; ECCPostVictoryFlow.Leave(true, () => navigations++);
-    Check(navigations==9 && fake.interstitials==1 && !ECCAdLoadingPopup.IsOpen, "due but not ready: skipped quietly, no waiting");
-    Restart(); fake.interstitialReady = true; ECCPostVictoryFlow.Leave(true, () => navigations++); Coroutine.Run(2.3f);
-    Check(fake.interstitials==2 && navigations==10, "still due after a restart: shown on the next Next Level");
+    // Failure: silent skip, stays due, no NoAds
+    for (int i=15;i<=18;i++){ PassLevels(i); ECCInterstitialSchedule.RecordWin("w"+i); }
+    fake.interstitialReady = false; ECCPostVictoryFlow.Leave(true, ()=>nav++); Coroutine.Run(3);
+    Check(fake.interstitials==1 && ECCInterstitialSchedule.IsDue && nav==15 && !FindAllRoots().Any(t=>t.gameObject.name=="CanvasNoAds" && t.gameObject.activeSelf), "not ready: skipped silently, no NoAds, still due");
+    Restart(); Check(ECCInterstitialSchedule.IsDue, "still due after a restart");
+    fake.interstitialReady = true;
+    ECCPostVictoryFlow.Leave(true, ()=>nav++, true); Coroutine.Run(2.5f);
+    Check(fake.interstitials==1 && nav==16 && ECCInterstitialSchedule.IsDue, "never right after a rewarded video of the same transition");
+    ECCPostVictoryFlow.Leave(true, ()=>nav++); Coroutine.Run(2.5f);
+    Check(fake.interstitials==2 && !ECCInterstitialSchedule.IsDue, "shown at the next transition");
+    // Replaying early levels follows the active tier
+    for (int i=0;i<4;i++) ECCInterstitialSchedule.RecordWin("replay"+i);
+    Check(ECCInterstitialSchedule.IsDue, "replay wins of early levels count once past level 10");
+    // After level 50: every 3
+    ECCInterstitialSchedule.MarkShown(); PassLevels(51);
+    for (int i=0;i<3;i++) ECCInterstitialSchedule.RecordWin("late"+i);
+    Check(ECCInterstitialSchedule.CurrentInterval==3 && ECCInterstitialSchedule.IsDue, "after level 50: every 3 completed levels");
+  }
+  static void TestInterstitialScheduleMigrationAndEvents(){
+    // A player who updates while already past level 50 follows the late tier at once
+    PassLevels(60); Check(ECCInterstitialSchedule.CurrentInterval==3, "update past level 50: late tier at once");
+    Wipe(); PassLevels(12); Check(ECCInterstitialSchedule.CurrentInterval==4, "update past level 10: early tier at once");
+    // Only normal wins count: not losses, the daily challenge ( own result ) or skips
+    var level = ECCLevelCatalog.Instance.AllLevels[12];
+    ECCGameController gc; var mode = MakeLevelRun(out gc, level);
+    mode.ShowResultScreen(false); FindButton("ButtonMenu").onClick.Invoke();
+    Check(ECCSave.Data.levelsSinceInterstitial==0, "a loss doesn't count");
+    mode.ShowResultScreen(false); PlayerPrefs.SetInt("Money", ECCLevelProgress.SkipPrice+5); FindButton("ButtonSkip").onClick.Invoke();
+    Check(ECCSave.Data.levelsSinceInterstitial==0, "a skip doesn't count");
+    mode = MakeLevelRun(out gc, level); mode.ShowResultScreen(true); mode.ShowResultScreen(true);
+    Check(ECCSave.Data.levelsSinceInterstitial==1, "a normal win counts once per run");
   }
 }

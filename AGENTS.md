@@ -46,6 +46,30 @@ Required new UI wording (adapt minor phrasing only for natural Persian):
 | Double Reward | دوبرابر کردن جایزه |
 | No Ads Available | تبلیغی موجود نیست |
 
+# MAIN MENU VISUAL DESIGN (APPLIES TO ALL TASKS)
+
+Several tasks add main-menu entries (Daily Missions, Other Games, Lucky Wheel, Login Rewards, Weekly League, coin balance). The main menu must stay clean, readable and attractive despite these additions.
+
+## Fewer icons, clean layout
+
+- Keep the main menu **visually light**: do not put a large decorative icon on every button and do not fill the screen with icon grids or floating icons.
+- Buttons are **text-first** (Persian label), with **at most one small, simple icon** per button only where it truly helps recognition. Badges (Task 2), lock state (Task 13) and the coin balance (Task 1) are functional indicators and are allowed.
+- Keep one clearly dominant primary action (e.g., Play / «شروع بازی»). Secondary entries use a consistent, slightly smaller style and must not compete with the primary button.
+- Do not add new decorative icons, stickers or background clutter to the main menu. Reuse existing art; remove or simplify redundant icons only when this does not break existing functionality or scene bindings, and document what was changed.
+- Keep the layout non-overlapping, safe-area aware and scrollable if needed (see Final Integration Audit).
+
+## Glossy buttons with a light-sweep (shine) effect
+
+- Main-menu buttons must look **glossy/shiny**: a subtle top highlight/gloss layer that matches the game's art direction (no harsh, cheap-looking gradients).
+- Add a **light-sweep effect**: a soft diagonal light streak periodically passes across each main-menu button from one side to the other.
+  - Duration of one sweep about **0.6–0.9 s**, repeated every **3–5 s** (configurable).
+  - **Stagger** the sweep between buttons so they do not all flash at the same moment; the primary Play button may sweep slightly more often.
+  - The streak must be clipped to the button shape (e.g., UI `Mask`/`RectMask2D` with a moving gradient image, or a lightweight UI shader compatible with the project's render pipeline). It must not leak outside the button, must not change the button's size or layout, and must not block or alter its hit area/raycasts.
+- Implement this as **one reusable component/prefab style** (e.g., `MenuButtonShine`) used by every main-menu button, not separate copies per button.
+- Performance: use cheap tweens/coroutines or a shader time parameter, no per-frame allocations, no heavy post-processing. Pause the effect when the menu is hidden, during popups that cover the menu, and when the app is in the background. Provide a config option to reduce/disable it on low-end devices.
+- Pulse animations required by other tasks (e.g., Daily Missions badge pulse, Task 13 first-open pulse) must still work and remain visually distinct from the shine sweep.
+- **When to implement:** create this shared style the first time a task adds or modifies a main-menu button (normally Task 2), apply it to the existing main-menu buttons at that time, and reuse it for every later main-menu button. Record it in `CODEX_PROGRESS.md`.
+
 # CRITICAL: ONE TASK AT A TIME / RESUMABLE WORK
 
 Thirteen tasks must be processed IN THIS ORDER:
@@ -299,7 +323,25 @@ Use verified SDK reward/completion signals to grant rewards. No credit on open, 
 
 ## Interstitials
 
-Respect existing frequency caps, cooldowns and appropriate gameplay transitions. Support the same priority, readiness check, pre-display fallback and no-double-show logic; do not add disruptive placements.
+Respect appropriate gameplay transitions. Support the same priority, readiness check, pre-display fallback and no-double-show logic; do not add disruptive placements.
+
+### Mandatory level-based interstitial schedule
+
+This schedule **replaces any existing level-count frequency rule** for interstitials. Keep any existing *time-based* minimum cooldown only if it does not contradict this schedule, and document what was kept or removed. All values must be configurable (e.g., in an ad config ScriptableObject).
+
+| Player progress (highest reached normal level) | Interstitial frequency |
+| --- | --- |
+| Levels 1–10 (`interstitialStartAfterLevel = 10`) | **No interstitials at all** |
+| After level 10, up to level 50 | **Once every 4 completed levels** (`earlyInterval = 4`) |
+| After level 50 (`lateTierStartLevel = 50`) | **Once every 3 completed levels** (`lateInterval = 3`) |
+
+Rules:
+- Count only **completed normal levels** (wins) toward the interval, using the same verified win event as Tasks 2, 11, 12 and 13. Do not count losses, Daily Challenge, tutorial levels, level skips, or duplicate win events.
+- Keep a persistent counter `levelsSinceLastInterstitial`. When it reaches the current interval, mark an interstitial as **due** for the next safe transition after the win (e.g., after the win screen when the player taps Next Level or Home) — never during gameplay, never on top of the win screen's reward/2X flow, and never during the Daily Challenge.
+- Reset the counter to 0 **only after an interstitial is actually displayed**. If both providers fail, **do not show the NoAds panel for interstitials** (the player did not ask for an ad); skip silently, keep it due, and try again at the next eligible transition.
+- Determine the tier (none / every 4 / every 3) from the player's **highest reached normal level**, so replaying early levels after level 10 still follows the active tier. Players who update the game while already past level 10 or 50 immediately follow the correct tier (safe migration).
+- Do not show an interstitial immediately after a rewarded ad the player just watched in the same transition, and never show two full-screen ads for one transition.
+- The "interstitial due" state must be explicit and readable by Task 12 (review prompt deferral) and the popup coordinator.
 
 ## NoAds panel
 
@@ -307,7 +349,7 @@ Search the current game for an existing `NoAds` panel/image/prefab. Reuse it if 
 
 ## Tests
 
-Use SDK test modes where available. Test Adivery-first, alternating after successful display, automatic fallback in BOTH directions, both unavailable -> NoAds, duplicate callbacks, rewarded skips/failures/success, interstitial, backgrounding, and no concurrent full-screen ads. Distinguish simulated tests from real provider/device tests. Update progress before Task 6.
+Use SDK test modes where available. Test Adivery-first, alternating after successful display, automatic fallback in BOTH directions, both unavailable -> NoAds (rewarded) / silent skip (interstitial), duplicate callbacks, rewarded skips/failures/success, interstitial, backgrounding, and no concurrent full-screen ads. Also test the interstitial schedule: no interstitial through level 10; one per 4 completed levels after level 10; one per 3 completed levels after level 50; counter persists across restarts and resets only after an actual display; losses/Daily Challenge/skips do not count; migration for players already past level 10/50. Distinguish simulated tests from real provider/device tests. Update progress before Task 6.
 
 # TASK 6 — PROFESSIONAL POWER-UPS
 
@@ -687,16 +729,37 @@ Add a Persian RTL **weekly star league** («لیگ هفتگی») that ranks the 
 
 This is an **offline, locally simulated** leaderboard: only the real player's stars are real; all other entries are generated competitors. Do not add a server, networking, accounts, or any new SDK for this feature.
 
+## Unlock requirement — league opens at level 8
+
+- The league is **locked until the player reaches level 8** (configurable `leagueUnlockLevel`, default **8**). "Reaches level 8" means level 8 is unlocked/available in the player's real campaign progress (i.e., level 7 has been completed). Read this from the game's existing progression data; do not create a second progress counter. Document the exact condition used.
+- **Existing players** whose saved progress is already at or beyond level 8 when this update is installed are unlocked immediately on the next launch (safe migration; no progress reset).
+- While locked:
+  - The main-menu **«لیگ هفتگی»** button is still visible, but shows a **lock icon** instead of a rank, using the existing visual style (e.g., «لیگ هفتگی 🔒»). Do not show any rank, competitor data, or fake numbers.
+  - Tapping it opens a small Persian RTL info popup (through the centralized popup coordinator, never stacked on another modal) with the text: **«وقتی به مرحله ۸ برسی، وارد لیگ هفتگی می‌شی و می‌تونی رتبه‌ات رو ببینی.»** and a single **«باشه»** button. The level number in the text must come from `leagueUnlockLevel` (rendered with Persian digits), not be hardcoded.
+  - No stars are counted toward the league, no competitors are generated, and the win-screen league section is hidden.
+- On the moment of unlocking:
+  - Record `leagueUnlocked = true` and the unlock date/time durably, exactly once.
+  - Start the player's **first league week** at that moment (see "First league week" below). Stars earned **before** unlocking are **not** added retroactively; the player starts the league at 0.
+  - Show a short, non-blocking Persian message on the win screen of the level that unlocked the league (or at the next safe main-menu entry if that is safer), e.g. **«لیگ هفتگی برات باز شد! حالا رتبه‌ات رو ببین.»**. It must not be a forced modal on top of other popups and must not delay result actions.
+  - Optionally show a one-time attention pulse on the main-menu league button until the player opens the league screen for the first time (stop it after first open).
+
 ## Honesty and naming rules for simulated competitors
 
-- Simulated competitors must use **generic, invented Persian nicknames** (e.g., «ستاره‌چین»، «توپ‌باز_۲۳»، «مسافر شب»). Never use names, photos, or handles of real people, celebrities, or real players, and never collect or display real user data of other people.
+- Competitor display names come from a configurable **name pool** that mixes three categories (approximate default mix, configurable):
+  - **Common Persian boy first names (~35%)**, e.g. «علی»، «محمد»، «امیرحسین»، «رضا»، «مهدی»، «آرش»، «پارسا»، «سینا»، «حسین»، «کیان»، «امید»، «مهران».
+  - **Common Persian girl first names (~35%)**, e.g. «زهرا»، «فاطمه»، «سارا»، «مریم»، «نگار»، «الناز»، «ریحانه»، «یاسمن»، «هستی»، «نازنین»، «ستاره»، «پریا».
+  - **Nicknames / gamer handles (~30%)**, e.g. «ستاره‌چین»، «توپ‌باز_۲۳»، «مسافر شب»، «شیرِ میدان»، «بانوی ستاره‌ها»، «قهرمان کوچولو»، «سلطان مراحل».
+  - First names may optionally get a light variation for realism (e.g., «سارا ۷۷»، «رضا_پرو»، «مریم.ک»), configurable.
+- Provide at least **40 boy names, 40 girl names and 30 nicknames** in the pool so tables do not look repetitive. Keep names balanced between boys and girls, natural, respectful and family-friendly; no offensive, political, religious-sensitive or mocking names.
+- **Only first names**, never full names (first name + surname), and never names/handles of celebrities, public figures, or real players. Never use real photos; use generic avatars/placeholder icons from the game's art style. Never collect or display real user data of other people.
+- Names are picked **deterministically from the week seed**, with **no duplicate name in the same week's table**, and must not change after restart.
 - Do not add UI copy that claims the competitors are real, online, or live players (avoid phrases such as «بازیکنان آنلاین» or «کاربران واقعی»). Neutral wording such as «رقبای این هفته» is acceptable.
 - Keep a configurable flag (default off) to show a small, unobtrusive note that the league is an offline challenge, so the developer can enable it if store policy or brand requirements demand it. Document this choice in `CODEX_PROGRESS.md`.
 
 ## Star source and scoring rules
 
 - Inspect the game's actual star system first (each normal level awards 0–3 stars; e.g., a game with 400 levels has a 1200-star campaign maximum). Reuse the existing star result; do not invent a second star calculation.
-- The player's **weekly score = the number of stars earned from winning levels during the current league week.** Example: a 3-star win adds 3, a 2-star win adds 2. Losses add 0.
+- The player's **weekly score = the number of stars earned from winning levels during the current league week, counted only after the league is unlocked.** Example: a 3-star win adds 3, a 2-star win adds 2. Losses add 0.
 - Count stars only from normal level victories, through the same verified win event used by Tasks 2, 11, and 12. Do not count Daily Challenge wins, level skips (Task 11), tutorial levels, or duplicate win events unless explicitly configured.
 - **Anti-farming rule (configurable, default ON):** within one league week, each level contributes at most its **best star count for that week** (max 3). Replaying a level adds only the improvement (e.g., previously 2 stars this week → now 3 stars adds +1). After the weekly reset, levels can contribute again. Without this rule, replaying the easiest level would make the league trivial; document the chosen setting.
 - Use idempotent, transaction-like accounting (unique win/session ID) so app backgrounding, duplicate callbacks, or scene reloads never add stars twice. Persist through the existing save architecture.
@@ -716,8 +779,8 @@ All values below must be configurable in a ScriptableObject/settings asset (e.g.
 - **Deterministic generation:** generate competitors from a stable seed (e.g., week ID + install ID) so the table is identical after restarts and does not need to run in the background. Competitor scores for any moment are calculated from: starting score + sum of daily increments for elapsed days of the week. Persist the seed and week ID; do not re-randomize on reopen.
 - **Daily update:** competitor scores update **once per calendar day** (at the shared day boundary). On each new day of the week, each competitor gains a daily random amount.
 - **Average daily gain:** the competitor field should gain on average about **8 stars per day** (daily gain per competitor randomly in **0–8**, with the distribution tuned so the field average is about 8/day for the leading group; configurable). This means the player needs roughly **three 3-star levels per day (≈9 stars)** to keep pace with or overtake the leading group.
-- **First-install week:** when the game is installed for the first time (any day of the week), generate the current week with the **same rules as a normal weekly reset** (below): the player starts at 0, the leading group starts **50–80 stars ahead**, and the rest start lower. If installation happens mid-week, do **not** add the elapsed days' gains to competitors retroactively; competitors grow only from the install day onward so the new player is not buried on day one. Keep this first-week profile configurable separately (e.g., `firstWeekLeaderMin/Max`) so it can be tuned later.
-- **Every weekly reset afterwards (Saturday morning):** when the player first opens the game in the new week, a group of competitors (configurable, default **5**) is placed **50–80 stars ahead of the player** (random per competitor within that range). The remaining competitors start lower (configurable, default 0–40) so the player can see attainable targets above and below. During the rest of the week, each competitor gains a random **0–8 stars per day** until the week ends.
+- **First league week (at unlock, level 8):** when the league is unlocked for the first time (any day of the week), generate the current week with the **same rules as a normal weekly reset** (below): the player starts at 0, the leading group starts **50–80 stars ahead**, and the rest start lower. If unlocking happens mid-week, do **not** add the elapsed days' gains to competitors retroactively; competitors grow only from the unlock day onward so the new player is not buried on day one. Weekly resets before the unlock are ignored entirely. Keep this first-week profile configurable separately (e.g., `firstWeekLeaderMin/Max`) so it can be tuned later.
+- **Every weekly reset after unlock (Saturday morning):** when the player first opens the game in the new week, a group of competitors (configurable, default **5**) is placed **50–80 stars ahead of the player** (random per competitor within that range). The remaining competitors start lower (configurable, default 0–40) so the player can see attainable targets above and below. During the rest of the week, each competitor gains a random **0–8 stars per day** until the week ends.
 - Clamp competitor scores to a realistic maximum (never above the game's real total star count, and never above a configurable weekly cap) so the table never shows impossible values.
 - Rank ties: the player ranks above competitors with the same score (configurable) to avoid demotivating ties; document the rule.
 
@@ -725,8 +788,8 @@ All values below must be configurable in a ScriptableObject/settings asset (e.g.
 
 ## Main-menu entry
 
-- Add a main-menu button styled like the existing main-menu buttons, labeled **«لیگ هفتگی»**, that also displays the player's **current rank**, e.g. **«رتبه ۱۲»** (Persian digits, correct RTL shaping).
-- Update the rank on menu entry, after a win, and after a weekly/day rollover through events, not per-frame polling.
+- Add a main-menu button styled like the existing main-menu buttons, labeled **«لیگ هفتگی»**. **After unlock** it also displays the player's **current rank**, e.g. **«رتبه ۱۲»** (Persian digits, correct RTL shaping). **Before unlock** it shows the lock state and opens the locked-info popup described in the unlock section, never the league screen.
+- Update the rank and the locked/unlocked state on menu entry, after a win, on unlock, and after a weekly/day rollover through events, not per-frame polling.
 - Place it without overlapping existing buttons (missions, Other Games, Lucky Wheel, login calendar); make the menu scrollable if necessary (see Final Integration Audit).
 - Opening the league must not trigger any automatic popup or ad, and must respect the centralized popup coordinator (Tasks 3, 8, 9, 12).
 
@@ -746,29 +809,32 @@ Extend the existing/upgraded win screen from Task 11 (do not create a second win
 - Stars earned in this win and how many were actually added to the weekly score (e.g., **«+۳ ستاره به لیگ هفتگی»**, or **«+۱ ستاره (بهبود رکورد این هفته)»** when the anti-farming rule applies, or a neutral message when 0 were added).
 - The player's new rank and the change since the **last rank the player saw**: **«رتبه‌ات ۴ پله بهتر شد ↑»** / **«رتبه‌ات ۲ پله پایین‌تر رفت ↓»** / **«رتبه‌ات تغییری نکرد»**. Because competitors update daily, the rank can drop even after a win; compute the change against the last displayed rank and store the newly displayed rank.
 - A small, lightweight count-up/arrow animation; it must not delay or cover the 2X button, next-level button, or other result actions.
-- Do not show this section for Daily Challenge wins, skips, or modes excluded from scoring.
+- Do not show this section for Daily Challenge wins, skips, modes excluded from scoring, or **while the league is still locked** (except the one-time unlock message on the unlocking win).
 
 ## Persistence
 
-Persist via the existing save system: week ID, week seed, first-install flag/week, player weekly stars, per-level weekly best stars, last processed win IDs (bounded), last displayed rank, and last processed day index. Restarting the app, changing scenes, or reopening the screen must never re-randomize competitors or double-count stars.
+Persist via the existing save system (competitor names are derived from the week seed, not stored separately unless needed): `leagueUnlocked` flag and unlock date, first-league-week ID, unlock-message-shown flag, first-open pulse flag, week ID, week seed, player weekly stars, per-level weekly best stars, last processed win IDs (bounded), last displayed rank, and last processed day index. Restarting the app, changing scenes, or reopening the screen must never re-randomize competitors or double-count stars.
 
 ## Validation
 
 Verify and record the actual checks performed for:
 
-1. First install (on any weekday): player at 0, leading group 50–80 stars ahead, no retroactive gains for elapsed days, rank displayed on main menu.
-2. Daily competitor update happens once per calendar day and is deterministic after restart.
-3. Average competitor growth ≈ 8 stars/day; three 3-star wins per day keep the player competitive.
-4. A 3-star win adds exactly 3 stars; replay rule adds only improvement within the week.
-5. No stars from losses, skips, Daily Challenge, or duplicate win events.
-6. Reset exactly at Friday 24:00 (Saturday 00:00); player stars become 0.
-7. On the first Saturday open, the configured group of competitors is 50–80 stars ahead, then grows 0–8 per day.
-8. App closed across several days/weeks computes the correct current week without double reset.
-9. Clock rollback does not grant extra stars or re-trigger resets incorrectly.
-10. Win screen shows stars earned and correct rank change (up, down, unchanged).
-11. Main-menu button rank updates without per-frame polling and does not overlap other buttons.
-12. Persian/RTL text, Persian digits, star icons and list scrolling render correctly on common aspect ratios.
-13. No conflict with popup coordination, ads, Daily Challenge, login calendar, or the review prompt.
+1. Before level 8: main-menu button shows the lock state with no rank; tapping it shows «وقتی به مرحله ۸ برسی، وارد لیگ هفتگی می‌شی و می‌تونی رتبه‌ات رو ببینی.» via the popup coordinator; no stars are counted and no league section appears on the win screen.
+2. Reaching level 8 unlocks the league exactly once (also after restart), shows the one-time unlock message without blocking results, and existing players already past level 8 are unlocked on update.
+3. First league week (unlock on any weekday): player at 0 with no retroactive pre-unlock stars, leading group 50–80 stars ahead, no retroactive competitor gains for elapsed days, rank displayed on main menu.
+4. Daily competitor update happens once per calendar day and is deterministic after restart.
+5. Average competitor growth ≈ 8 stars/day; three 3-star wins per day keep the player competitive.
+6. A 3-star win adds exactly 3 stars; replay rule adds only improvement within the week.
+7. No stars from losses, skips, Daily Challenge, or duplicate win events.
+8. Reset exactly at Friday 24:00 (Saturday 00:00); player stars become 0.
+9. On the first Saturday open after unlock, the configured group of competitors is 50–80 stars ahead, then grows 0–8 per day.
+10. App closed across several days/weeks computes the correct current week without double reset.
+11. Clock rollback does not grant extra stars, unlock the league early, or re-trigger resets incorrectly.
+12. Win screen shows stars earned and correct rank change (up, down, unchanged).
+13. Main-menu button rank/lock state updates without per-frame polling and does not overlap other buttons.
+14. Persian/RTL text, Persian digits, lock/star icons and list scrolling render correctly on common aspect ratios.
+15. No conflict with popup coordination, ads, Daily Challenge, login calendar, or the review prompt.
+16. Competitor names mix boy names, girl names and nicknames per the configured ratio, contain no duplicates within a week, contain no surnames or real-person handles, and stay identical after restart.
 
 Complete, validate, and record Task 13 in `CODEX_PROGRESS.md` before the final integration audit.
 
@@ -789,13 +855,15 @@ When all thirteen tasks are completed or precisely documented as blocked, review
 - General win/loss result screens are upgraded, game-themed, and integrated with shared reward, revive/continue, and skip-level logic.
 - The once-daily Other Games recommendation reuses Task 4 catalog, never supersedes the Daily Challenge popup, never appears at first daily entry, and opens verified Cafe Bazaar listings after a safe normal-level victory.
 - Main menu buttons for missions, Other Games and Lucky Wheel do not overlap; make menu scrollable if necessary.
+- Main menu stays visually light (few icons, text-first buttons, one dominant Play action), and all main-menu buttons use the shared glossy style with a staggered, clipped, lightweight light-sweep effect that pauses when hidden.
+- Interstitials follow the level schedule: none through level 10, every 4 completed levels after level 10, every 3 after level 50; counter resets only after an actual display; no NoAds panel for failed interstitials.
 - Notifications/pulsing remain accurate, text is Persian with proper RTL/shaping, and coin icon/number ordering works.
 - All relevant screens support Android aspect ratios and safe areas.
 - App resume, pauses, scene changes, failed ads, rapid taps, duplicate callbacks, restarts and daily rollover are handled.
 - Before every eligible ad flow, the loading popup appears exactly once, blocks repeated taps safely, and never causes duplicate ad requests.
 - On eligible level-based modes, two consecutive losses on the same level unlock the skip-level option with coin or rewarded-ad fallback.
 - Bazaar/Myket review prompt uses the store-selection field and Android Intent in `BazaarReviewManager.cs`, appears once after an eligible Next Level tap, and never competes with the daily recommendation or scheduled interstitial.
-- Weekly Star League counts only valid weekly stars, resets at Friday 24:00, keeps simulated competitors deterministic, shows rank on the main menu and rank change on the win screen, and never overlaps other modals.
+- Weekly Star League stays locked until level 8 (with the Persian locked-info popup), counts only valid weekly stars after unlock, resets at Friday 24:00, keeps simulated competitors deterministic, shows rank on the main menu and rank change on the win screen, and never overlaps other modals.
 - Existing game flow, progression and saved player data remain functional.
 - Avoid per-frame polling, redundant event subscriptions, duplicate SDK initialization and heavy effects.
 
@@ -810,17 +878,17 @@ At the end, report in **Persian**:
 2. Status of tasks 1–13 (`COMPLETE / BLOCKED / IN_PROGRESS / NOT_STARTED`).
 3. What was implemented per task, including all 25 missions, their goals and coin rewards.
 4. Challenge generation method, time limit, rewarded +30-second continuation, and victory 2X implementation status.
-5. Pre-ad loading popup behavior, minimum display timing, and shared integration status.
+5. Interstitial level schedule (start level, intervals, counter/migration behavior), pre-ad loading popup behavior, minimum display timing, and shared integration status.
 6. Win/loss result-screen upgrade status, including pulsing 2X, revive/continue, and skip-level behavior after consecutive losses.
 7. One-time Bazaar/Myket review prompt eligibility, store-selection field, Android Intent behavior, Next Level trigger, `BazaarReviewManager.cs` reuse, and non-overlap verification.
 8. Ten-day consecutive-login calendar, increasing reward configuration, Day 10 special reward, streak/reset logic and popup coordination status.
 9. Game catalog/Cafe Bazaar status, including reuse from `connectballs` and daily recommendation popup behavior.
 10. Adivery/Tapsell rewarded/interstitial integration and live-testing status.
 11. `connectball` / `connectballs` reuse status for NoAds, wheel, Other Games catalog, and any shared ad manager assets.
-12. Created/modified scripts, scenes, prefabs and assets.
+12. Created/modified scripts, scenes, prefabs and assets, including the main-menu glossy/light-sweep button style and any icons removed or simplified.
 13. Tests actually performed and test results.
 14. Required manual actions, external credentials/data and any unresolved risks.
-15. Weekly Star League: star-counting rules, competitor simulation values, weekly reset behavior, main-menu rank and win-screen rank-change status.
+15. Weekly Star League: level-8 unlock condition and locked-state behavior, star-counting rules, competitor simulation values, weekly reset behavior, main-menu rank and win-screen rank-change status.
 16. Exact next step, if anything remains.
 
 # MOST IMPORTANT DIRECTIVE

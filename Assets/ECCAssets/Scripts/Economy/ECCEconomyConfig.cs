@@ -143,9 +143,18 @@ namespace EndlessCarChase
         [Tooltip("The boss takes at least this many average rams of the player's car")]
         public float bossHitsOfPlayerDamage = 8;
 
-        [Header("Interstitial ( AdsManagerNew )")]
-        [Tooltip("An interstitial is shown on every Nth «مرحله بعد» tap after a normal level win ( if one is ready )")]
-        public int interstitialEveryLevels = 4;
+        [Header("Interstitial schedule ( ECCInterstitialSchedule )")]
+        [Tooltip("No interstitials at all until the player completed more than this many levels")]
+        public int interstitialStartAfterLevel = 10;
+
+        [Tooltip("After interstitialStartAfterLevel: one interstitial every this many completed levels")]
+        public int interstitialEarlyInterval = 4;
+
+        [Tooltip("From this completed level on, the late interval is used")]
+        public int lateTierStartLevel = 50;
+
+        [Tooltip("After lateTierStartLevel: one interstitial every this many completed levels")]
+        public int interstitialLateInterval = 3;
 
         static ECCEconomyConfig instance;
 

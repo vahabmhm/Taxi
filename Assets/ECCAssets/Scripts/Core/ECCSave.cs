@@ -123,6 +123,9 @@ namespace EndlessCarChase
         // ----- Interstitial pacing: «مرحله بعد» taps after a win since the last interstitial -----
         public int levelsSinceInterstitial = 0;
 
+        // The run id of the last win counted for the interstitial schedule ( a run reporting twice counts once )
+        public string lastInterstitialWinId = string.Empty;
+
         // ----- Weekly star league ( ECCWeeklyLeague ) -----
         public ECCLeagueSave league = new ECCLeagueSave();
     }

@@ -995,7 +995,13 @@ namespace EndlessCarChase.Modes
                 ECCReviewPrompt.RecordNormalWin(Level.id);
 
                 // The weekly star league counts normal level wins only ( the daily challenge has its own result screen )
-                if (this is ECCDailyChallengeMode == false) ECCWeeklyLeague.RecordWin(Level.id, stars, leagueWinId);
+                if (this is ECCDailyChallengeMode == false)
+                {
+                    ECCWeeklyLeague.RecordWin(Level.id, stars, leagueWinId);
+
+                    // Completed normal levels count towards the level-based interstitial schedule
+                    ECCInterstitialSchedule.RecordWin(leagueWinId);
+                }
 
                 // Permanent achievements for the special goals
                 if (Level.objective == ECCObjectiveType.DestroyBoss) ECCAchievements.Report(ECCStat.BossesDefeated, 1);
