@@ -209,12 +209,12 @@ namespace EndlessCarChase
             // Two columns of candy buttons under the card ( right to left )
             float gridTop = -186 - CardHeight - 36;
 
-            AddFeature("missions", "مأموریت‌های امروز", ECCCarTheme.Hex(0x8E5CF7), "Icons/target", Color.white, ECCDailyMissionsUI.Open, gridTop);
-            AddFeature("challenge", "چالش روز", ECCCarTheme.Hex(0xFF6B4A), "Icons/clock", Color.white, delegate { ECCChallengePopup.Open(gameController); }, gridTop);
-            AddFeature("wheel", "گردونه شانس", ECCCarTheme.CandyBlue, "WheelIcon", Color.white, ECCLuckyWheelUI.Open, gridTop);
-            AddFeature("othergames", "سایر بازی‌ها", ECCCarTheme.Hex(0x14B8A6), "Icons/play", Color.white, ECCOtherGamesUI.Open, gridTop);
-            AddFeature("login", "جایزه ورود روزانه", ECCCarTheme.Hex(0xF4B400), "Icons/gift", Color.white, ECCLoginRewardsUI.Open, gridTop);
-            AddFeature("achievements", "دستاوردها", ECCCarTheme.Hex(0xE0A100), "Icons/trophy", Color.white, ECCAchievementsUI.Open, gridTop);
+            AddFeature("missions", "مأموریت‌های امروز", ECCCarTheme.Hex(0x8E5CF7), null, Color.white, ECCDailyMissionsUI.Open, gridTop);
+            AddFeature("challenge", "چالش روز", ECCCarTheme.Hex(0xFF6B4A), null, Color.white, delegate { ECCChallengePopup.Open(gameController); }, gridTop);
+            AddFeature("wheel", "گردونه شانس", ECCCarTheme.CandyBlue, null, Color.white, ECCLuckyWheelUI.Open, gridTop);
+            AddFeature("othergames", "سایر بازی‌ها", ECCCarTheme.Hex(0x14B8A6), null, Color.white, ECCOtherGamesUI.Open, gridTop);
+            AddFeature("login", "جایزه ورود روزانه", ECCCarTheme.Hex(0xF4B400), null, Color.white, ECCLoginRewardsUI.Open, gridTop);
+            AddFeature("achievements", "دستاوردها", ECCCarTheme.Hex(0xE0A100), null, Color.white, ECCAchievementsUI.Open, gridTop);
 
             // The weekly star league: a wide button under the grid, with the player's rank
             BuildLeagueButton(gridTop - 3 * (GridButtonHeight + 24));
@@ -304,7 +304,7 @@ namespace EndlessCarChase
 
             if (string.IsNullOrEmpty(icon) == false)
             {
-                float iconSize = Mathf.Min(size.y * 0.56f, 56);
+                float iconSize = Mathf.Min(size.y * 0.42f, 40);
 
                 ECCCarTheme.CreateIcon("Icon", button.transform, icon, new Vector2(1, 0.5f), new Vector2(-14 - iconSize * 0.5f, 2), iconSize, Color.white).rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
@@ -315,6 +315,9 @@ namespace EndlessCarChase
                 text.resizeTextMaxSize = fontSize;
                 text.horizontalOverflow = HorizontalWrapMode.Wrap;
             }
+
+            // The shared glossy style with the staggered light sweep ( the play button sweeps a little more often )
+            ECCMenuButtonShine.Apply(button, name == "PlayLevel");
 
             return button;
         }
@@ -399,7 +402,7 @@ namespace EndlessCarChase
             openMap.onClick.AddListener(OpenLevelSelect);
 
             // The separate endless mode, with its record on the left
-            endlessButton = CandyButton(rect, "Endless", "حالت بی‌نهایت", ECCCarTheme.Hex(0xA45CFF), "Icons/fire", new Vector2(CardWidth - 60, 96), 32);
+            endlessButton = CandyButton(rect, "Endless", "حالت بی‌نهایت", ECCCarTheme.Hex(0xA45CFF), null, new Vector2(CardWidth - 60, 96), 28);
             ((RectTransform)endlessButton.transform).anchorMin = ((RectTransform)endlessButton.transform).anchorMax = bottomCenter;
             ((RectTransform)endlessButton.transform).anchoredPosition = new Vector2(0, 74);
             endlessButton.onClick.AddListener(delegate { StartChase(GameModeType.Endless); });
@@ -689,7 +692,7 @@ namespace EndlessCarChase
         {
             float width = GridButtonWidth * 2 + 24;
 
-            leagueButton = CandyButton(column, "League", "لیگ هفتگی", ECCWeeklyLeagueUI.LeagueColor, "Icons/crown", new Vector2(width, GridButtonHeight), 28);
+            leagueButton = CandyButton(column, "League", "لیگ هفتگی", ECCWeeklyLeagueUI.LeagueColor, null, new Vector2(width, GridButtonHeight), 26);
 
             RectTransform rect = (RectTransform)leagueButton.transform;
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
