@@ -126,6 +126,11 @@ namespace EndlessCarChase
         // The run id of the last win counted for the interstitial schedule ( a run reporting twice counts once )
         public string lastInterstitialWinId = string.Empty;
 
+        // ----- Taxi driver rank ( TaxiDriverRank ): rides delivered in every mode, the latest ratings, the best rank -----
+        public int driverRides = 0;
+        public List<int> driverRatings = new List<int>();
+        public int driverRank = 0;
+
         // ----- Weekly star league ( ECCWeeklyLeague ) -----
         public ECCLeagueSave league = new ECCLeagueSave();
     }

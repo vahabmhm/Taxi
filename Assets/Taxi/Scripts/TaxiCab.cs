@@ -130,6 +130,9 @@ namespace EndlessCarChase
 
             foreach (TaxiPassenger passenger in riding)
             {
+                // A follow ride has no destination until the followed car stops
+                if (passenger.dropoffHidden) continue;
+
                 float distance = ECCRuntimeVisuals.FlatDistance(position, passenger.dropoff.zone);
 
                 if (distance > ZoneReach) continue;
@@ -219,10 +222,18 @@ namespace EndlessCarChase
             riding.Remove(passenger);
 
             bool late = passenger.IsLate;
-            int rating = TaxiPassenger.Rate(passenger.kind, passenger.bumps, late, passenger.pickupQuality, quality);
+
+            // A wish still open is settled now: the hurry and the gentle ride were kept, the stop was skipped
+            bool wishOpen = passenger.wish != null && passenger.wish.IsActive;
+
+            if (passenger.wish != null) passenger.wish.Arrive();
+
+            if (wishOpen && IsPlayer) TaxiWishes.Announce(passenger.wish);
+
+            int rating = Mathf.Clamp(TaxiPassenger.Rate(passenger.kind, passenger.bumps, late, passenger.pickupQuality, quality) + passenger.WishStars, 1, 5);
             int fare = TaxiPassenger.Fare(passenger.kind, TaxiCity.StreetDistance(passenger.pickup.zone, passenger.dropoff.zone), rating, passenger.pickupQuality, quality, late);
 
-            if (TaxiSession.Instance) fare = Mathf.RoundToInt(fare * TaxiSession.Instance.FareMultiplier);
+            if (TaxiSession.Instance) fare = Mathf.Max(1, Mathf.RoundToInt(fare * TaxiSession.Instance.FareFor(this, passenger)));
 
             passenger.GetOut(rating >= 3);
 
