@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using EndlessCarChase.Levels;
 
 namespace EndlessCarChase
 {
@@ -36,6 +37,15 @@ namespace EndlessCarChase
             card.Finish(false);
         }
 
+        /// <summary>
+        /// The coins a gift video gives right now: grows a little with the chapter the player reached
+        /// ( ECCEconomyConfig.GetRewardedCoinGift ). Read once when the popup opens and paid exactly
+        /// </summary>
+        public static int CurrentOffer
+        {
+            get { return ECCEconomyConfig.Instance.GetRewardedCoinGift(ECCLevelCatalog.Instance.FurthestChapter); }
+        }
+
         static bool LimitReached
         {
             get
@@ -52,7 +62,7 @@ namespace EndlessCarChase
 
         void Build(ECCResultCard card)
         {
-            offer = Mathf.Max(1, ECCEconomyConfig.Instance.rewardedCoinGift);
+            offer = CurrentOffer;
             transactionId = "coingift-" + Guid.NewGuid().ToString("N");
 
             Vector2 center = new Vector2(0.5f, 0.5f);

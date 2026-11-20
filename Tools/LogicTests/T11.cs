@@ -26,7 +26,7 @@ public static partial class T {
     Check(!ECCContinueOfferUI.IsOpen && gc.isGameOver, "second time up in the run: no second offer, the run fails");
   }
   static void TestReviveOffer(){
-    PlayerPrefs.SetInt("Money", 250);
+    PlayerPrefs.SetInt("Money", ECCEconomyConfig.Instance.reviveCoinPrice+50);
     var go = new GameObject("GameController"); var gc = go.AddComponent<ECCGameController>(); gc.gameStarted = true;
     gc.activeMode = ECCGameModeManager.AttachMode(gc);
     var car = new GameObject("Player").AddComponent<ECCCar>(); car.healthMax = 10; car.health = 0; gc.playerObject = car; typeof(ECCCar).GetField("gameController",BindingFlags.NonPublic|BindingFlags.Static).SetValue(null, gc);
@@ -54,7 +54,7 @@ public static partial class T {
   }
   static void TestSkipAfterTwoLosses(){
     var levels = ECCLevelCatalog.Instance.AllLevels; var l1 = levels[0]; var l2 = levels[1];
-    PlayerPrefs.SetInt("Money", 1000);
+    PlayerPrefs.SetInt("Money", ECCLevelProgress.SkipPrice+1000);
     ECCGameController gc; var mode = MakeLevelRun(out gc, l1);
     mode.ShowResultScreen(false);
     Check(ECCLevelProgress.LossesInARow(l1)==1 && FindButton("ButtonSkip")==null, "one loss: no skip");
@@ -64,7 +64,7 @@ public static partial class T {
     Check(FindButton("ButtonRetry").GetComponent<ECCPulse>().enabled, "retry CTA pulses on the loss screen");
     Check(!ECCLevelCatalog.Instance.IsUnlocked(l2), "next level locked before skipping");
     var skip = FindButton("ButtonSkip"); skip.onClick.Invoke(); skip.onClick.Invoke();
-    Check(ECCWallet.Balance==1000-ECCLevelProgress.SkipPrice, "skip spends the price once");
+    Check(ECCWallet.Balance==1000, "skip spends the price once");
     Check(ECCLevelProgress.IsSkipped(l1) && ECCSave.GetStars(l1.id)==0 && ECCLevelCatalog.Instance.IsUnlocked(l2) && ECCLevelCatalog.Instance.SelectedLevel==l2, "skip unlocks and selects the next level, no stars");
     Check(ECCLevelProgress.LossesInARow(l1)==0 && !ECCLevelResultUI.IsOpen, "counter reset after skip");
   }
@@ -73,7 +73,7 @@ public static partial class T {
     PlayerPrefs.SetInt("Money", 10);
     ECCGameController gc; var mode = MakeLevelRun(out gc, l1);
     mode.ShowResultScreen(false); FindButton("ButtonMenu").onClick.Invoke(); mode.ShowResultScreen(false);
-    var skip = FindButton("ButtonSkip"); Check(Texts(skip.transform).Contains(ECCPersianText.Fix("▶  تماشای ویدئو و رد کردن مرحله")), "not enough coins: video skip");
+    var skip = FindButton("ButtonSkip"); Check(Texts(skip.transform).Contains(ECCPersianText.Fix("تماشای ویدئو و رد کردن مرحله")), "not enough coins: video skip");
     var fake = FakeAds.Install(ECCAdResult.Skipped);
     skip.onClick.Invoke(); Coroutine.Run(3);
     Check(!ECCLevelProgress.IsSkipped(l1) && ECCWallet.Balance==10 && skip.interactable, "skipped video: not skipped");

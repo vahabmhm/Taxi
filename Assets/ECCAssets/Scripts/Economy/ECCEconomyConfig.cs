@@ -18,17 +18,19 @@ namespace EndlessCarChase
     /// To edit in the Inspector: Assets > Create > Endless Car Chase > Economy Config, save it in a Resources folder
     /// with the name ECCEconomyConfig.
     ///
-    /// How the defaults were chosen ( money = coins in this game ), rebalanced so videos are sometimes needed:
-    /// - A normal 60-90 second run banks about 100-250 coins ( 1 coin per second x wanted multiplier, near-miss bonuses, cash ).
-    /// - A first level win pays its level reward plus the banked run: chapter 1 about 150-450, generated chapters
-    ///   levelRewardBase + chapter x levelRewardPerChapter + slot x levelRewardPerSlot ( about 250-600, bosses double ).
-    ///   Replays pay a quarter of the level reward.
-    /// - Daily free income without any video: missions ~500, daily challenge 250, wheel ~100, login 50-300.
-    /// - Sinks: cars 800 rising 30% each ( ~45,000 for all eleven ), upgrades 200-2000 ( 4,700 per stat per car ),
-    ///   power-ups 100-250 per use, wreck revive 400, level skip 1200.
-    /// - Two power-ups in a level cost about what that level pays, so a player who also saves for the next car or
-    ///   upgrade runs short every few levels. Then the free paths are videos: the 200 coin gift, a power-up for a
-    ///   video, the 2X level reward, the video revive. Playing without power-ups still progresses, only slower.
+    /// How the defaults were chosen for the taxi game ( money = coins ). ECCEconomyModel computes the full table from
+    /// these values and CODEX_PROGRESS.md records it; all of it is an estimate until real player data exists.
+    /// - Fares are the main income: about 50 coins a ride for a regular driver ( base + street distance, kind of
+    ///   passenger, tips, the good-ride streak ), about 280 a level.
+    /// - A first level win adds levelRewardBase + chapter x perChapter + slot x perSlot ( about 150-470, the chapter's
+    ///   last level double ). Replays pay a quarter of it, so replaying an easy level earns less per minute than
+    ///   progressing.
+    /// - Daily free income without any video: missions ~550, daily challenge 250, wheel ~100, login ~140.
+    /// - A regular player ( 5 levels and a short shift a day, one power-up per level ) earns ~3,900 a day, spends
+    ///   ~1,500 on power-ups, revives and fines, and saves the rest for cars ( 800 rising 30% ), upgrades ( 4,700 per
+    ///   stat per car ) and styles.
+    /// - The gift video ( 300, +10 per chapter reached, at most 550 ) is about 8-11% of that day: worth one or two
+    ///   videos a day, never the main income. Nothing needs a video to progress.
     /// </summary>
     [CreateAssetMenu(fileName = "ECCEconomyConfig", menuName = "Endless Car Chase/Economy Config")]
     public class ECCEconomyConfig : ScriptableObject
@@ -36,8 +38,15 @@ namespace EndlessCarChase
         const string ResourcePath = "ECCEconomyConfig";
 
         [Header("Coin gift popup ( rewarded video )")]
-        [Tooltip("Coins given for watching one rewarded video from the coin balance button")]
-        public int rewardedCoinGift = 200;
+        [Tooltip("Coins given for watching one rewarded video from the coin balance button, in chapter 1")]
+        public int rewardedCoinGift = 300;
+
+        [Tooltip("Extra gift coins for each chapter the player has reached after the first, so the offer stays worth " +
+                 "about the same share of the daily spending as the level rewards grow")]
+        public int rewardedCoinGiftPerChapter = 10;
+
+        [Tooltip("The most coins one gift video can give")]
+        public int rewardedCoinGiftMax = 550;
 
         [Tooltip("Most coin gift videos per day. 0 means no limit")]
         public int rewardedCoinGiftDailyLimit = 0;
@@ -82,9 +91,9 @@ namespace EndlessCarChase
 
         [Header("Level rewards ( generated chapters )")]
         [Tooltip("Coins of a generated level's first win: base + chapter x perChapter + level slot x perSlot. Bosses pay double")]
-        public int levelRewardBase = 200;
-        public int levelRewardPerChapter = 12;
-        public int levelRewardPerSlot = 8;
+        public int levelRewardBase = 150;
+        public int levelRewardPerChapter = 10;
+        public int levelRewardPerSlot = 6;
 
         [Header("Wreck revive")]
         [Tooltip("Coins to continue after the car is wrecked ( the video is the free way )")]
@@ -134,9 +143,18 @@ namespace EndlessCarChase
         [Tooltip("The boss takes at least this many average rams of the player's car")]
         public float bossHitsOfPlayerDamage = 8;
 
-        [Header("Interstitial ( AdsManagerNew )")]
-        [Tooltip("An interstitial is shown on every Nth «مرحله بعد» tap after a normal level win ( if one is ready )")]
-        public int interstitialEveryLevels = 4;
+        [Header("Interstitial schedule ( ECCInterstitialSchedule )")]
+        [Tooltip("No interstitials at all until the player completed more than this many levels")]
+        public int interstitialStartAfterLevel = 10;
+
+        [Tooltip("After interstitialStartAfterLevel: one interstitial every this many completed levels")]
+        public int interstitialEarlyInterval = 4;
+
+        [Tooltip("From this completed level on, the late interval is used")]
+        public int lateTierStartLevel = 50;
+
+        [Tooltip("After lateTierStartLevel: one interstitial every this many completed levels")]
+        public int interstitialLateInterval = 3;
 
         static ECCEconomyConfig instance;
 
@@ -153,6 +171,18 @@ namespace EndlessCarChase
 
                 return instance;
             }
+        }
+
+        /// <summary>
+        /// The coin gift video's amount for a player who reached this chapter ( 0 based ), rounded to 10
+        /// </summary>
+        public int GetRewardedCoinGift(int chapter)
+        {
+            int amount = rewardedCoinGift + Mathf.Max(0, chapter) * Mathf.Max(0, rewardedCoinGiftPerChapter);
+
+            amount = Mathf.RoundToInt(amount / 10f) * 10;
+
+            return Mathf.Max(1, rewardedCoinGiftMax > 0 ? Mathf.Min(amount, Mathf.Max(rewardedCoinGift, rewardedCoinGiftMax)) : amount);
         }
 
         public int GetPowerUpPrice(ECCPowerUpType type)

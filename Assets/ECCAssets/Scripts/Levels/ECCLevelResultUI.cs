@@ -131,6 +131,21 @@ namespace EndlessCarChase.Levels
                 card.Progress("فصل " + ECCUIKit.PersianDigits(level.chapterIndex + 1) + ": " + ECCUIKit.PersianDigits(passed) + " از " + ECCUIKit.PersianDigits(chapterLevels.Length) + " مرحله", passed / (float)Mathf.Max(1, chapterLevels.Length), ECCCarTheme.CandyGreen);
             }
 
+            // The weekly league: stars added by this win and the rank change since the rank the player saw last
+            ECCLeagueWin league = level != null ? ECCWeeklyLeague.TakePendingWin(level.id) : null;
+
+            // The win that reached the unlock level: a one-time, non-blocking message instead of the league section
+            if (level != null && ECCWeeklyLeague.TakeUnlockMessage(level.id))
+            {
+                Text unlockText = card.InfoBox("Icons/crown", ECCWeeklyLeagueUI.LeagueColor, ECCWeeklyLeague.UnlockMessage, 64);
+                unlockText.transform.parent.gameObject.AddComponent<ECCPopIn>();
+            }
+            else if (league != null)
+            {
+                Text leagueText = card.InfoBox("Icons/crown", ECCWeeklyLeagueUI.LeagueColor, ECCWeeklyLeague.StarsText(league) + "\n" + ECCWeeklyLeague.RankChangeText(league), 76);
+                leagueText.transform.parent.gameObject.AddComponent<ECCPopIn>();
+            }
+
             if (nextLevel != null) card.InfoBox("Icons/target", ECCCarTheme.CandyBlue, "بعدی: " + nextLevel.DisplayName + " · " + nextLevel.title + "\n" + nextLevel.ObjectiveDescription, 76);
 
             card.Space(4);
@@ -368,7 +383,7 @@ namespace EndlessCarChase.Levels
 
             Close();
 
-            if (wasVictory) ECCPostVictoryFlow.Leave(isNextLevel, navigate);
+            if (wasVictory) ECCPostVictoryFlow.Leave(isNextLevel, navigate, doubled);
             else navigate();
         }
 

@@ -123,10 +123,53 @@ namespace EndlessCarChase
         // ----- Interstitial pacing: «مرحله بعد» taps after a win since the last interstitial -----
         public int levelsSinceInterstitial = 0;
 
+        // The run id of the last win counted for the interstitial schedule ( a run reporting twice counts once )
+        public string lastInterstitialWinId = string.Empty;
+
         // ----- Taxi driver rank ( TaxiDriverRank ): rides delivered in every mode, the latest ratings, the best rank -----
         public int driverRides = 0;
         public List<int> driverRatings = new List<int>();
         public int driverRank = 0;
+
+        // ----- Weekly star league ( ECCWeeklyLeague ) -----
+        public ECCLeagueSave league = new ECCLeagueSave();
+    }
+
+    [Serializable]
+    public class ECCLeagueSave
+    {
+        // A random id made once per install: with the week it seeds the competitors
+        public string salt = string.Empty;
+
+        // The league opens at ECCLeagueConfig.leagueUnlockLevel; recorded once
+        public bool unlocked = false;
+        public string unlockDay = string.Empty;
+        public long unlockTime = 0;
+        public string firstWeekId = string.Empty;
+        public bool unlockMessageShown = false;
+
+        // The league screen was opened once ( stops the menu button's attention pulse )
+        public bool opened = false;
+
+        // The Saturday that started the current league week ( "yyyy-MM-dd" ), empty before the first week
+        public string weekId = string.Empty;
+
+        // Day of the week ( 0 = Saturday ) the competitors started growing: the install day in the first week, else 0
+        public int startDay = 0;
+        public bool firstWeek = false;
+
+        public int stars = 0;
+
+        // The best stars of each level this week ( parallel lists, JsonUtility has no dictionaries )
+        public List<string> levelIds = new List<string>();
+        public List<int> levelStars = new List<int>();
+
+        // The last win ids counted ( bounded ), so a win is never counted twice
+        public List<string> wins = new List<string>();
+
+        // The rank the player saw last ( 0: none yet this week ) and the last day the table was looked at
+        public int lastShownRank = 0;
+        public int lastDay = -1;
     }
 
     [Serializable]

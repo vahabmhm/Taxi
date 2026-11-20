@@ -6,10 +6,12 @@ namespace EndlessCarChase
     /// <summary>
     /// What happens when the player leaves a NORMAL level victory screen ( Next Level, Retry or Menu ), before the scene changes.
     /// At most one extra popup or ad per transition, in priority order:
-    /// 1. an interstitial on every Nth Next Level tap ( ECCEconomyConfig.interstitialEveryLevels, default 4 ), only if one is
-    ///    ready; otherwise it stays due for the next Next Level tap
+    /// 1. a due interstitial ( ECCInterstitialSchedule: none through level 10, every 4 completed levels after it, every 3
+    ///    after level 50 ), only if one is ready and no rewarded video was watched on this victory screen; otherwise it
+    ///    stays due for the next transition
     /// 2. today's other-game recommendation ( once per day )
-    /// 3. the one-time store review prompt ( ECCReviewPrompt ), only for Next Level and only without a scheduled interstitial
+    /// 3. the one-time store review prompt ( ECCReviewPrompt ), only for Next Level and never on a transition where an
+    ///    interstitial was due, even if that interstitial then failed
     /// The daily challenge result never goes through here.
     /// </summary>
     public static class ECCPostVictoryFlow
@@ -17,54 +19,63 @@ namespace EndlessCarChase
         static bool running = false;
 
         /// <summary>
-        /// Runs the transition popups ( if any ) and then the navigation. Repeated taps while running are ignored
+        /// True while this transition chose an interstitial ( due ), so the review prompt waits for a later one
         /// </summary>
+        public static bool InterstitialSelected { get; private set; }
+
         public static void Leave(bool isNextLevel, Action navigate)
+        {
+            Leave(isNextLevel, navigate, false);
+        }
+
+        /// <summary>
+        /// Runs the transition popups ( if any ) and then the navigation. Repeated taps while running are ignored.
+        /// rewardedWatched: a rewarded video was just watched on the victory screen ( the 2X ), so no interstitial now
+        /// </summary>
+        public static void Leave(bool isNextLevel, Action navigate, bool rewardedWatched)
         {
             // A transition popup is still open: ignore the repeated tap
             if (running && (ECCGameRecommendationUI.IsOpen || ECCReviewPromptUI.IsOpen || ECCAds.IsBusy)) return;
 
             running = true;
+            InterstitialSelected = false;
 
             Action finish = delegate
             {
                 running = false;
+                InterstitialSelected = false;
 
                 if (navigate != null) navigate();
             };
 
-            // 1. The interstitial every few levels, right after the victory's Next Level tap
-            if (isNextLevel && TryShowInterstitial(finish)) return;
+            // 1. A due interstitial ( never right after a rewarded video of the same transition )
+            if (rewardedWatched == false && ECCInterstitialSchedule.IsDue)
+            {
+                InterstitialSelected = true;
+
+                if (TryShowInterstitial(finish)) return;
+            }
 
             // 2. The daily recommendation; the review prompt waits for a later transition
             if (ECCGameRecommendation.TryShow(finish)) return;
 
-            // 3. The one-time review prompt: only on Next Level, never when an interstitial uses this transition
-            if (isNextLevel && ECCAds.IsInterstitialScheduled == false && ECCReviewPrompt.TryShow(finish)) return;
+            // 3. The one-time review prompt: only on Next Level, never when an interstitial was due for this transition
+            if (isNextLevel && InterstitialSelected == false && ECCAds.IsInterstitialScheduled == false && ECCReviewPrompt.TryShow(finish)) return;
 
             finish();
         }
 
         /// <summary>
-        /// Counts this Next Level tap and shows an interstitial when enough levels passed since the last one.
-        /// Nothing is shown ( and the loading popup doesn't appear ) when no interstitial is ready
+        /// Shows the due interstitial. Nothing is shown ( and the loading popup doesn't appear ) when none is ready; then it
+        /// simply stays due. The counter is reset only after a real display
         /// </summary>
         static bool TryShowInterstitial(Action finish)
         {
-            ECCSave.Data.levelsSinceInterstitial++;
-            ECCSave.Save();
-
-            if (ECCSave.Data.levelsSinceInterstitial < Mathf.Max(1, ECCEconomyConfig.Instance.interstitialEveryLevels)) return false;
-
             if (ECCAds.IsBusy || ECCModalTracker.AnyOpen || ECCAds.IsInterstitialReady == false) return false;
 
-            return ECCAds.ShowInterstitial("next_level", delegate (bool shown)
+            return ECCAds.ShowInterstitial("level_transition", delegate (bool shown)
             {
-                if (shown)
-                {
-                    ECCSave.Data.levelsSinceInterstitial = 0;
-                    ECCSave.Save();
-                }
+                if (shown) ECCInterstitialSchedule.MarkShown();
 
                 finish();
             });

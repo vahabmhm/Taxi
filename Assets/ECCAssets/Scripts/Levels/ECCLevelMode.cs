@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using EndlessCarChase.Levels;
 
@@ -957,6 +957,9 @@ namespace EndlessCarChase.Modes
             return 1;
         }
 
+        // One id per run, so the league never counts the same win twice
+        readonly string leagueWinId = System.Guid.NewGuid().ToString("N");
+
         public override void ShowResultScreen(bool victory)
         {
             isRunning = false;
@@ -990,6 +993,15 @@ namespace EndlessCarChase.Modes
 
                 // Distinct normal level wins count towards the one-time review prompt
                 ECCReviewPrompt.RecordNormalWin(Level.id);
+
+                // The weekly star league counts normal level wins only ( the daily challenge has its own result screen )
+                if (this is ECCDailyChallengeMode == false)
+                {
+                    ECCWeeklyLeague.RecordWin(Level.id, stars, leagueWinId);
+
+                    // Completed normal levels count towards the level-based interstitial schedule
+                    ECCInterstitialSchedule.RecordWin(leagueWinId);
+                }
 
                 // Permanent achievements for the special goals
                 if (Level.objective == ECCObjectiveType.DestroyBoss) ECCAchievements.Report(ECCStat.BossesDefeated, 1);

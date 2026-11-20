@@ -129,6 +129,23 @@ namespace EndlessCarChase.Levels
             }
         }
 
+        /// <summary>
+        /// The chapter of the first level not completed yet ( 0 based ), the last chapter when everything is done.
+        /// Used to scale offers with the player's progress
+        /// </summary>
+        public int FurthestChapter
+        {
+            get
+            {
+                foreach (ECCLevelData level in AllLevels)
+                {
+                    if (ECCLevelProgress.IsPassed(level) == false) return level.chapterIndex;
+                }
+
+                return Mathf.Max(0, chapters.Length - 1);
+            }
+        }
+
         public int GetChapterStars(int chapter)
         {
             int stars = 0;

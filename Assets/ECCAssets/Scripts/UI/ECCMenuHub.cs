@@ -122,7 +122,7 @@ namespace EndlessCarChase
         // ----- The CrowdRush style menu -----
 
         // Design size of the middle column ( title, level card, buttons ); it shrinks on short screens
-        const float ColumnHeight = 1150;
+        const float ColumnHeight = 1266;
         const float CardWidth = 640;
         const float CardHeight = 590;
         const float GridButtonWidth = 308;
@@ -215,16 +215,21 @@ namespace EndlessCarChase
             // Two columns of candy buttons under the card ( right to left )
             float gridTop = -186 - CardHeight - 36;
 
-            AddFeature("missions", "مأموریت‌های امروز", ECCCarTheme.Hex(0x8E5CF7), "Icons/target", Color.white, ECCDailyMissionsUI.Open, gridTop);
-            AddFeature("challenge", "چالش روز", ECCCarTheme.Hex(0xFF6B4A), "Icons/clock", Color.white, delegate { ECCChallengePopup.Open(gameController); }, gridTop);
-            AddFeature("wheel", "گردونه شانس", ECCCarTheme.CandyBlue, "WheelIcon", Color.white, ECCLuckyWheelUI.Open, gridTop);
-            AddFeature("othergames", "سایر بازی‌ها", ECCCarTheme.Hex(0x14B8A6), "Icons/play", Color.white, ECCOtherGamesUI.Open, gridTop);
-            AddFeature("login", "جایزه ورود روزانه", ECCCarTheme.Hex(0xF4B400), "Icons/gift", Color.white, ECCLoginRewardsUI.Open, gridTop);
-            AddFeature("achievements", "دستاوردها", ECCCarTheme.Hex(0xE0A100), "Icons/trophy", Color.white, ECCAchievementsUI.Open, gridTop);
+            AddFeature("missions", "مأموریت‌های امروز", ECCCarTheme.Hex(0x8E5CF7), null, Color.white, ECCDailyMissionsUI.Open, gridTop);
+            AddFeature("challenge", "چالش روز", ECCCarTheme.Hex(0xFF6B4A), null, Color.white, delegate { ECCChallengePopup.Open(gameController); }, gridTop);
+            AddFeature("wheel", "گردونه شانس", ECCCarTheme.CandyBlue, null, Color.white, ECCLuckyWheelUI.Open, gridTop);
+            AddFeature("othergames", "سایر بازی‌ها", ECCCarTheme.Hex(0x14B8A6), null, Color.white, ECCOtherGamesUI.Open, gridTop);
+            AddFeature("login", "جایزه ورود روزانه", ECCCarTheme.Hex(0xF4B400), null, Color.white, ECCLoginRewardsUI.Open, gridTop);
+            AddFeature("achievements", "دستاوردها", ECCCarTheme.Hex(0xE0A100), null, Color.white, ECCAchievementsUI.Open, gridTop);
+
+            // The weekly star league: a wide button under the grid, with the player's rank
+            BuildLeagueButton(gridTop - 3 * (GridButtonHeight + 24));
 
             ECCAchievements.Changed += RefreshBadges;
 
             ECCMissions.Changed += RefreshBadges;
+
+            ECCWeeklyLeague.Changed += OnLeagueChanged;
 
             // Today's login counts for the ten-day rewards
             ECCLoginRewards.RegisterLogin();
@@ -305,7 +310,7 @@ namespace EndlessCarChase
 
             if (string.IsNullOrEmpty(icon) == false)
             {
-                float iconSize = Mathf.Min(size.y * 0.56f, 56);
+                float iconSize = Mathf.Min(size.y * 0.42f, 40);
 
                 ECCCarTheme.CreateIcon("Icon", button.transform, icon, new Vector2(1, 0.5f), new Vector2(-14 - iconSize * 0.5f, 2), iconSize, Color.white).rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
@@ -316,6 +321,9 @@ namespace EndlessCarChase
                 text.resizeTextMaxSize = fontSize;
                 text.horizontalOverflow = HorizontalWrapMode.Wrap;
             }
+
+            // The shared glossy style with the staggered light sweep ( the play button sweeps a little more often )
+            ECCMenuButtonShine.Apply(button, name == "PlayLevel");
 
             return button;
         }
@@ -400,7 +408,7 @@ namespace EndlessCarChase
             openMap.onClick.AddListener(OpenLevelSelect);
 
             // The separate endless mode, with its record on the left
-            endlessButton = CandyButton(rect, "Endless", "حالت بی‌نهایت", ECCCarTheme.Hex(0xA45CFF), "Icons/fire", new Vector2(CardWidth - 60, 96), 32);
+            endlessButton = CandyButton(rect, "Endless", "حالت بی‌نهایت", ECCCarTheme.Hex(0xA45CFF), null, new Vector2(CardWidth - 60, 96), 28);
             ((RectTransform)endlessButton.transform).anchorMin = ((RectTransform)endlessButton.transform).anchorMax = bottomCenter;
             ((RectTransform)endlessButton.transform).anchoredPosition = new Vector2(0, 74);
             endlessButton.onClick.AddListener(delegate { StartChase(GameModeType.Endless); });
@@ -623,6 +631,7 @@ namespace EndlessCarChase
         {
             ECCMissions.Changed -= RefreshBadges;
             ECCAchievements.Changed -= RefreshBadges;
+            ECCWeeklyLeague.Changed -= OnLeagueChanged;
 
             if (instance == this) instance = null;
         }
@@ -679,11 +688,103 @@ namespace EndlessCarChase
             SetAvailable("challenge", ECCDailyChallenge.IsCompletedToday == false || ECCDailyChallenge.IsDoubleUsedToday == false);
         }
 
+        Button leagueButton;
+        Text leagueRank;
+
+        /// <summary>
+        /// «لیگ هفتگی» across the two grid columns, a crown on the right and the rank in a chip on the left
+        /// </summary>
+        void BuildLeagueButton(float top)
+        {
+            float width = GridButtonWidth * 2 + 24;
+
+            leagueButton = CandyButton(column, "League", "لیگ هفتگی", ECCWeeklyLeagueUI.LeagueColor, null, new Vector2(width, GridButtonHeight), 26);
+
+            RectTransform rect = (RectTransform)leagueButton.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1);
+            rect.pivot = new Vector2(0.5f, 1);
+            rect.anchoredPosition = new Vector2(0, top);
+
+            Text label = ECCRuntimeUI.GetLabel(leagueButton);
+            label.rectTransform.sizeDelta -= new Vector2(190, 0);
+            label.rectTransform.anchoredPosition += new Vector2(95, 0);
+
+            Image chip = ECCCarTheme.CreatePanel("RankChip", leagueButton.transform, new Vector2(0, 0.5f), new Vector2(18, 2), new Vector2(170, 60), new Color(0, 0, 0, 0.22f));
+            chip.rectTransform.pivot = new Vector2(0, 0.5f);
+            chip.raycastTarget = false;
+
+            leagueRank = ECCRuntimeUI.CreateText("Rank", chip.transform, string.Empty, 26, new Vector2(0.5f, 0.5f), new Vector2(0, 1), new Vector2(160, 52), Color.white);
+            leagueRank.resizeTextForBestFit = true;
+            leagueRank.resizeTextMinSize = 14;
+            leagueRank.resizeTextMaxSize = 26;
+
+            leagueLock = ECCCarTheme.CreateIcon("Lock", chip.transform, "Icons/lock", new Vector2(0.5f, 0.5f), new Vector2(0, 2), 38, Color.white);
+            leagueLock.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+            leagueButton.onClick.AddListener(OnLeagueTapped);
+
+            RefreshLeague(false);
+        }
+
+        Image leagueLock;
+
+        /// <summary>
+        /// Locked: a small «باشه» info popup ( never over another popup ). Unlocked: the league screen
+        /// </summary>
+        void OnLeagueTapped()
+        {
+            if (ECCModalTracker.AnyOpen) return;
+
+            if (ECCWeeklyLeague.IsUnlocked) ECCWeeklyLeagueUI.Open();
+            else ECCWeeklyLeagueUI.OpenLocked();
+        }
+
+        /// <summary>
+        /// Shows the current rank on the league button. On the visible menu it also counts as the rank the player saw
+        /// </summary>
+        void RefreshLeague(bool seen)
+        {
+            if (leagueRank == null) return;
+
+            bool unlocked = ECCWeeklyLeague.IsUnlocked;
+
+            // Locked: a lock instead of a rank, no numbers at all
+            leagueLock.gameObject.SetActive(unlocked == false);
+            leagueRank.gameObject.SetActive(unlocked);
+
+            // A one-time attention pulse after the unlock, until the league screen was opened once
+            ECCPulse.Set(leagueButton, unlocked && ECCWeeklyLeague.WasOpened == false, 0.05f);
+
+            if (unlocked == false) return;
+
+            int rank = ECCWeeklyLeague.Rank;
+
+            ECCRuntimeUI.SetText(leagueRank, "رتبه " + ECCUIKit.PersianDigits(rank));
+
+            if (seen)
+            {
+                ECCWeeklyLeague.MarkRankShown(rank);
+
+                // A player unlocked by an update ( or whose unlocking win screen closed early ) gets the message here, once
+                if (ECCWeeklyLeague.UnlockMessagePending && ECCWeeklyLeague.PendingUnlockLevel == null)
+                {
+                    ECCWeeklyLeague.MarkUnlockMessageShown();
+                    ECCToast.Show(ECCWeeklyLeague.UnlockMessage, ECCWeeklyLeagueUI.LeagueColor);
+                }
+            }
+        }
+
+        void OnLeagueChanged()
+        {
+            RefreshLeague(false);
+        }
+
         /// <summary>
         /// Called every time the main menu appears
         /// </summary>
         void OnMainMenuShown()
         {
+            RefreshLeague(true);
             RefreshBadges();
             RefreshMode();
 
