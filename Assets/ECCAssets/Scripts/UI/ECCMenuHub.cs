@@ -709,9 +709,25 @@ namespace EndlessCarChase
             leagueRank.resizeTextMinSize = 14;
             leagueRank.resizeTextMaxSize = 26;
 
-            leagueButton.onClick.AddListener(ECCWeeklyLeagueUI.Open);
+            leagueLock = ECCCarTheme.CreateIcon("Lock", chip.transform, "Icons/lock", new Vector2(0.5f, 0.5f), new Vector2(0, 2), 38, Color.white);
+            leagueLock.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+            leagueButton.onClick.AddListener(OnLeagueTapped);
 
             RefreshLeague(false);
+        }
+
+        Image leagueLock;
+
+        /// <summary>
+        /// Locked: a small «باشه» info popup ( never over another popup ). Unlocked: the league screen
+        /// </summary>
+        void OnLeagueTapped()
+        {
+            if (ECCModalTracker.AnyOpen) return;
+
+            if (ECCWeeklyLeague.IsUnlocked) ECCWeeklyLeagueUI.Open();
+            else ECCWeeklyLeagueUI.OpenLocked();
         }
 
         /// <summary>
@@ -721,11 +737,32 @@ namespace EndlessCarChase
         {
             if (leagueRank == null) return;
 
+            bool unlocked = ECCWeeklyLeague.IsUnlocked;
+
+            // Locked: a lock instead of a rank, no numbers at all
+            leagueLock.gameObject.SetActive(unlocked == false);
+            leagueRank.gameObject.SetActive(unlocked);
+
+            // A one-time attention pulse after the unlock, until the league screen was opened once
+            ECCPulse.Set(leagueButton, unlocked && ECCWeeklyLeague.WasOpened == false, 0.05f);
+
+            if (unlocked == false) return;
+
             int rank = ECCWeeklyLeague.Rank;
 
             ECCRuntimeUI.SetText(leagueRank, "رتبه " + ECCUIKit.PersianDigits(rank));
 
-            if (seen) ECCWeeklyLeague.MarkRankShown(rank);
+            if (seen)
+            {
+                ECCWeeklyLeague.MarkRankShown(rank);
+
+                // A player unlocked by an update ( or whose unlocking win screen closed early ) gets the message here, once
+                if (ECCWeeklyLeague.UnlockMessagePending && ECCWeeklyLeague.PendingUnlockLevel == null)
+                {
+                    ECCWeeklyLeague.MarkUnlockMessageShown();
+                    ECCToast.Show(ECCWeeklyLeague.UnlockMessage, ECCWeeklyLeagueUI.LeagueColor);
+                }
+            }
         }
 
         void OnLeagueChanged()

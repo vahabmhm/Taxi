@@ -40,7 +40,15 @@ namespace EndlessCarChase
         {
             if (open) return;
 
+            // Never shown while locked
+            if (ECCWeeklyLeague.IsUnlocked == false)
+            {
+                OpenLocked();
+                return;
+            }
+
             ECCWeeklyLeague.Ensure();
+            ECCWeeklyLeague.MarkOpened();
 
             ECCResultCard card = ECCPopupKit.Create("CanvasWeeklyLeague", 70, "لیگ هفتگی", LeagueColor, "Icons/crown", ECCWeeklyLeague.TimeLeftText(), false, delegate { if (open) open.Close(); }, Width);
 
@@ -63,6 +71,31 @@ namespace EndlessCarChase
             ECCWeeklyLeague.Changed += open.Refresh;
 
             open.Refresh();
+
+            card.Finish(false);
+        }
+
+        /// <summary>
+        /// The small locked-league info popup: when the league opens, and a single «باشه»
+        /// </summary>
+        public static void OpenLocked()
+        {
+            if (ECCModalTracker.AnyOpen) return;
+
+            ECCResultCard card = ECCPopupKit.Create("CanvasLeagueLocked", 70, "لیگ هفتگی", LeagueColor, "Icons/lock", null, false, null, 560);
+
+            card.Line(ECCWeeklyLeague.LockedText, 22, 70, ECCCarTheme.CardInk).horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            card.Space(6);
+
+            Button ok = card.WideButton("ButtonOk", "باشه", LeagueColor, null, 84, 30);
+            ok.onClick.AddListener(delegate { ECCUIKit.ClosePopup(ok); });
+
+            // The corner X closes it too
+            foreach (Button button in card.Panel.GetComponentsInChildren<Button>(true))
+            {
+                if (button != ok) button.onClick.AddListener(delegate { ECCUIKit.ClosePopup(ok); });
+            }
 
             card.Finish(false);
         }

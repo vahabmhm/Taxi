@@ -7,6 +7,7 @@ public static partial class T {
     return d.AddDays(week*7 + ECCWeeklyLeague.DayOfLeagueWeek(NextWeekday(d, weekday)));
   }
   static DateTime NextWeekday(DateTime from, DayOfWeek w){ while (from.DayOfWeek != w) from = from.AddDays(1); return from; }
+  static void UnlockLeague(){ PassLevels(ECCWeeklyLeague.UnlockLevel-1); ECCWeeklyLeague.CheckUnlock(); }
   static void SetLeagueDay(DateTime day){ ECCSave.Data.lastSeenDay = day.ToString("yyyy-MM-dd"); ECCSave.Save(); }
   static List<ECCLeagueEntry> RawCompetitors(){ var d = ECCSave.Data.league; return ECCWeeklyLeague.Generate(d.weekId, d.salt, d.firstWeek, d.startDay, ECCWeeklyLeague.TodayIndex, ECCLeagueConfig.Instance); }
 
@@ -19,10 +20,11 @@ public static partial class T {
   static void TestLeagueFirstInstall(){
     var config = ECCLeagueConfig.Instance;
     SetLeagueDay(LeagueDay(DayOfWeek.Wednesday, 0)); // installed on a Wednesday
+    UnlockLeague();
     ECCWeeklyLeague.Ensure();
     var data = ECCSave.Data.league;
     var comps = RawCompetitors();
-    Check(data.firstWeek && data.startDay==4 && ECCWeeklyLeague.PlayerStars==0, "first install mid-week: player at 0, competitors start growing on the install day");
+    Check(data.firstWeek && data.startDay==4 && ECCWeeklyLeague.PlayerStars==0, "first league week ( unlocked mid-week ): player at 0, competitors start growing on the unlock day");
     Check(comps.Count==config.leagueSize-1 && comps.Take(config.leaderCount).All(c=>c.stars>=config.firstWeekLeaderMin && c.stars<=config.firstWeekLeaderMax), "leading group 50-80 ahead, no retroactive gains for the elapsed days");
     Check(comps.Skip(config.leaderCount).All(c=>c.stars>=config.othersStartMin && c.stars<=config.othersStartMax), "the others start lower ( 0-40 )");
     Check(comps.Select(c=>c.name).Distinct().Count()==comps.Count && !comps.Any(c=>c.name.Contains("آنلاین")), "distinct invented nicknames");
@@ -58,6 +60,7 @@ public static partial class T {
 
   static void TestLeagueStarRules(){
     SetLeagueDay(LeagueDay(DayOfWeek.Sunday, 1));
+    UnlockLeague();
     var a = ECCWeeklyLeague.RecordWin("c1-l1", 3, "win-a");
     Check(a.added==3 && ECCWeeklyLeague.PlayerStars==3 && !a.improvement, "a 3-star win adds exactly 3");
     Check(ECCWeeklyLeague.RecordWin("c1-l1", 3, "win-a")==null && ECCWeeklyLeague.PlayerStars==3, "the same win id never counts twice");
@@ -74,6 +77,7 @@ public static partial class T {
   static void TestLeagueReset(){
     var config = ECCLeagueConfig.Instance;
     SetLeagueDay(LeagueDay(DayOfWeek.Friday, 2)); ECCWeeklyLeague.Ensure();
+    UnlockLeague();
     ECCWeeklyLeague.RecordWin("c1-l1", 3, "w1");
     string fridayWeek = ECCWeeklyLeague.WeekId;
     var saturday = LeagueDay(DayOfWeek.Saturday, 3);
@@ -106,6 +110,7 @@ public static partial class T {
     Check(ECCWeeklyLeague.RankChangeText(w).Contains("تغییری نکرد"), "rank unchanged text");
     // Ties: the player is above competitors with the same stars
     SetLeagueDay(LeagueDay(DayOfWeek.Saturday, 6)); ECCWeeklyLeague.Ensure();
+    UnlockLeague();
     var comps = RawCompetitors(); int target = comps.Max(c=>c.stars);
     ECCSave.Data.league.stars = target;
     Check(ECCWeeklyLeague.Rank==1 && ECCWeeklyLeague.Table()[0].isPlayer, "ties: the player ranks above");
@@ -115,6 +120,7 @@ public static partial class T {
   static void TestLeagueLevelIntegration(){
     typeof(ECCWeeklyLeague).GetProperty("PendingWin").SetValue(null, null);
     SetLeagueDay(LeagueDay(DayOfWeek.Monday, 8)); ECCWeeklyLeague.Ensure();
+    UnlockLeague();
     ECCWeeklyLeague.MarkRankShown(ECCWeeklyLeague.Rank);
     var level = ECCLevelCatalog.Instance.AllLevels[0];
     ECCGameController gc; var mode = MakeLevelRun(out gc, level);
@@ -133,7 +139,7 @@ public static partial class T {
     Check(ECCWeeklyLeague.PlayerStars==stars, "duplicate win event of the same run adds nothing");
     FindButton("ButtonMenu").onClick.Invoke();
     // A skip after two losses never adds league stars
-    var l2 = ECCLevelCatalog.Instance.AllLevels[1]; ECCLevelCatalog.Instance.SelectedLevel = l2;
+    var l2 = ECCLevelCatalog.Instance.AllLevels[ECCWeeklyLeague.UnlockLevel-1]; ECCLevelCatalog.Instance.SelectedLevel = l2;
     PlayerPrefs.SetInt("Money", ECCLevelProgress.SkipPrice+10);
     mode = MakeLevelRun(out gc, l2); mode.ShowResultScreen(false); FindButton("ButtonMenu").onClick.Invoke(); mode.ShowResultScreen(false);
     FindButton("ButtonSkip").onClick.Invoke();
@@ -142,6 +148,7 @@ public static partial class T {
 
   static void TestLeagueMenuAndScreen(){
     SetLeagueDay(LeagueDay(DayOfWeek.Tuesday, 9));
+    UnlockLeague();
     var hub = MakeMenu(); ShowMenu(hub);
     var button = FindButton("ButtonLeague");
     int rank = ECCWeeklyLeague.Rank;

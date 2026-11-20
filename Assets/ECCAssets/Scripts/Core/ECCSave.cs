@@ -136,6 +136,16 @@ namespace EndlessCarChase
         // A random id made once per install: with the week it seeds the competitors
         public string salt = string.Empty;
 
+        // The league opens at ECCLeagueConfig.leagueUnlockLevel; recorded once
+        public bool unlocked = false;
+        public string unlockDay = string.Empty;
+        public long unlockTime = 0;
+        public string firstWeekId = string.Empty;
+        public bool unlockMessageShown = false;
+
+        // The league screen was opened once ( stops the menu button's attention pulse )
+        public bool opened = false;
+
         // The Saturday that started the current league week ( "yyyy-MM-dd" ), empty before the first week
         public string weekId = string.Empty;
 

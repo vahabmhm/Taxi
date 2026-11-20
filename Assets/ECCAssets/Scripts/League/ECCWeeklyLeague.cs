@@ -47,15 +47,34 @@ namespace EndlessCarChase
     {
         const int MaxRememberedWins = 40;
 
-        // Generic invented nicknames ( never real people )
-        static readonly string[] Nicknames =
+        // Common Persian first names only ( never surnames, celebrities or real players ) and invented nicknames
+        public static readonly string[] BoyNames =
+        {
+            "علی", "محمد", "امیرحسین", "رضا", "مهدی", "آرش", "پارسا", "سینا", "حسین", "کیان",
+            "امید", "مهران", "امیر", "سجاد", "عرفان", "آرمان", "بردیا", "پویا", "محسن", "حامد",
+            "میلاد", "سهیل", "یاسین", "طاها", "ماهان", "آریا", "کوروش", "بهراد", "رامین", "نیما",
+            "فرهاد", "کامران", "سامان", "شایان", "یوسف", "دانیال", "ایلیا", "امیرعلی", "محمدرضا", "بنیامین",
+        };
+
+        public static readonly string[] GirlNames =
+        {
+            "زهرا", "فاطمه", "سارا", "مریم", "نگار", "الناز", "ریحانه", "یاسمن", "هستی", "نازنین",
+            "ستاره", "پریا", "مهسا", "نرگس", "آیدا", "رها", "کیمیا", "ترانه", "شیما", "سحر",
+            "مینا", "الهام", "نیلوفر", "بهار", "آتنا", "فرشته", "مائده", "محدثه", "هانیه", "سمیرا",
+            "پرنیا", "آوا", "دینا", "ساناز", "شادی", "لیلا", "مبینا", "یگانه", "رومینا", "تینا",
+        };
+
+        public static readonly string[] Nicknames =
         {
             "ستاره‌چین", "مسافر شب", "راننده‌ی آرام", "چراغ سبز", "تاکسی‌ران_۲۳", "ترمز طلایی", "شهرگرد", "باد شمال",
             "گاز و ترمز", "مسیریاب", "خیابون‌گرد", "رفیق جاده", "سرعت‌سنج", "فرمون‌طلا", "شب‌رو", "کوچه‌باغ",
             "بوق‌زن_۷", "چهارراه", "مسافرکش_۴۰", "آفتاب‌گردون", "ماه‌نو", "رهگذر", "زرد قناری", "دنده‌سنگین",
-            "جاده‌ی ابریشم", "سفر خوش", "ایستگاه آخر", "پلاک_۱۱", "کیلومترشمار", "خط ویژه", "میدون‌گرد", "تند و تیز",
-            "آینه‌بغل", "صبح زود", "ترافیک‌شکن", "شب‌تاب", "رادیو تاکسی", "سرنشین", "مسیر میانبر", "گردش شهری",
+            "سفر خوش", "ایستگاه آخر", "پلاک_۱۱", "کیلومترشمار", "خط ویژه", "میدون‌گرد", "تند و تیز", "آینه‌بغل",
+            "صبح زود", "ترافیک‌شکن", "شب‌تاب", "رادیو تاکسی", "شیرِ میدان", "بانوی ستاره‌ها", "قهرمان کوچولو", "سلطان مراحل",
         };
+
+        // Light variations of a first name: a number, «_پرو», or an initial
+        static readonly string[] NameSuffixes = { "_پرو", "_گلد", ".ک", ".م", ".ر", ".س" };
 
         /// <summary>
         /// Raised when the player's stars, the week or the day changed
@@ -77,6 +96,140 @@ namespace EndlessCarChase
 
                 return data.league;
             }
+        }
+
+        // ----- Unlock ( level 8 ) -----
+
+        /// <summary>
+        /// The level number that opens the league ( 1-based )
+        /// </summary>
+        public static int UnlockLevel
+        {
+            get { return Mathf.Max(1, Config.leagueUnlockLevel); }
+        }
+
+        /// <summary>
+        /// True once the league was opened by progress ( saved, never locked again )
+        /// </summary>
+        public static bool IsUnlocked
+        {
+            get
+            {
+                CheckUnlock();
+                return Data.unlocked;
+            }
+        }
+
+        /// <summary>
+        /// The campaign condition: the unlock level is available, i.e. the level before it was completed ( or skipped ).
+        /// Read from the real level progress ( ECCLevelCatalog / ECCLevelProgress ), no second counter
+        /// </summary>
+        public static bool ProgressReachesUnlock
+        {
+            get
+            {
+                List<ECCLevelData> levels = ECCLevelCatalog.Instance.AllLevels;
+
+                int index = UnlockLevel - 1;
+
+                if (index <= 0 || levels.Count == 0) return true;
+
+                return ECCLevelProgress.IsPassed(levels[Mathf.Min(index, levels.Count) - 1]);
+            }
+        }
+
+        /// <summary>
+        /// Records the unlock exactly once when the progress allows it ( also for players who update past level 8 ).
+        /// The first league week then starts on the unlock day. Returns true at the moment of unlocking
+        /// </summary>
+        public static bool CheckUnlock()
+        {
+            ECCLeagueSave data = Data;
+
+            if (data.unlocked || ProgressReachesUnlock == false) return false;
+
+            data.unlocked = true;
+            data.unlockDay = ECCDaily.Today;
+            data.unlockTime = ECCDaily.UnixNow;
+
+            // Weeks before the unlock are ignored: the first week starts now, from 0
+            data.weekId = string.Empty;
+            data.stars = 0;
+            data.levelIds.Clear();
+            data.levelStars.Clear();
+            data.wins.Clear();
+            data.lastShownRank = 0;
+
+            ECCSave.Save();
+
+            Ensure();
+
+            data.firstWeekId = data.weekId;
+            ECCSave.Save();
+
+            return true;
+        }
+
+        /// <summary>
+        /// The level whose win just unlocked the league, waiting for its win screen message
+        /// </summary>
+        public static string PendingUnlockLevel { get; private set; }
+
+        /// <summary>
+        /// The one-time unlock message should still be shown ( on the unlocking win, or at the next menu entry )
+        /// </summary>
+        public static bool UnlockMessagePending
+        {
+            get { return Data.unlocked && Data.unlockMessageShown == false; }
+        }
+
+        public static void MarkUnlockMessageShown()
+        {
+            if (Data.unlockMessageShown) return;
+
+            Data.unlockMessageShown = true;
+            ECCSave.Save();
+        }
+
+        /// <summary>
+        /// The win screen of the unlocking level takes the message ( once )
+        /// </summary>
+        public static bool TakeUnlockMessage(string levelId)
+        {
+            if (PendingUnlockLevel == null || PendingUnlockLevel != levelId) return false;
+
+            PendingUnlockLevel = null;
+
+            if (UnlockMessagePending == false) return false;
+
+            MarkUnlockMessageShown();
+
+            return true;
+        }
+
+        public const string UnlockMessage = "لیگ هفتگی برات باز شد! حالا رتبه‌ات رو ببین.";
+
+        public static string LockedText
+        {
+            get { return "وقتی به مرحله " + ECCUIKit.PersianDigits(UnlockLevel) + " برسی، وارد لیگ هفتگی می‌شی و می‌تونی رتبه‌ات رو ببینی."; }
+        }
+
+        /// <summary>
+        /// The league screen was opened ( stops the menu button's one-time pulse )
+        /// </summary>
+        public static bool WasOpened
+        {
+            get { return Data.opened; }
+        }
+
+        public static void MarkOpened()
+        {
+            if (Data.opened) return;
+
+            Data.opened = true;
+            ECCSave.Save();
+
+            if (Changed != null) Changed();
         }
 
         // ----- The week -----
@@ -156,6 +309,9 @@ namespace EndlessCarChase
         public static bool Ensure()
         {
             ECCLeagueSave data = Data;
+
+            // Nothing runs before the unlock: no weeks, no competitors
+            if (data.unlocked == false) return false;
 
             string today = ECCDaily.Today;
             string week = WeekOf(today);
@@ -246,17 +402,6 @@ namespace EndlessCarChase
         {
             System.Random random = new System.Random(ECCDaily.Seed(weekId, "league|" + salt));
 
-            // Distinct nicknames for the week
-            List<string> names = new List<string>(Nicknames);
-
-            for (int index = names.Count - 1; index > 0; index--)
-            {
-                int other = random.Next(index + 1);
-                string swap = names[index];
-                names[index] = names[other];
-                names[other] = swap;
-            }
-
             int count = Mathf.Max(1, config.leagueSize) - 1;
             int cap = GameStarCap;
 
@@ -285,12 +430,99 @@ namespace EndlessCarChase
                     if (day > startDay && day <= dayIndex) stars += gain;
                 }
 
-                string name = index < names.Count ? names[index] : names[index % names.Count] + "_" + ECCUIKit.PersianDigits(index + 1);
-
-                entries.Add(new ECCLeagueEntry { name = name, stars = Mathf.Clamp(stars, 0, cap) });
+                entries.Add(new ECCLeagueEntry { name = string.Empty, stars = Mathf.Clamp(stars, 0, cap) });
             }
 
+            // Names from their own random stream, so changing the name pool never changes the stars
+            AssignNames(entries, new System.Random(ECCDaily.Seed(weekId, "names|" + salt)), config);
+
             return entries;
+        }
+
+        /// <summary>
+        /// Gives every entry a distinct name: boys, girls and nicknames mixed by the configured shares
+        /// </summary>
+        static void AssignNames(List<ECCLeagueEntry> entries, System.Random random, ECCLeagueConfig config)
+        {
+            List<string>[] pools = { Shuffled(BoyNames, random), Shuffled(GirlNames, random), Shuffled(Nicknames, random) };
+            float[] shares = { Mathf.Max(0, config.boyNameShare), Mathf.Max(0, config.girlNameShare), Mathf.Max(0, config.nicknameShare) };
+
+            HashSet<string> used = new HashSet<string>();
+
+            foreach (ECCLeagueEntry entry in entries)
+            {
+                string name = null;
+
+                for (int attempt = 0; attempt < 8 && name == null; attempt++)
+                {
+                    int kind = PickKind(shares, pools, random);
+
+                    if (kind < 0) break;
+
+                    string candidate = pools[kind][pools[kind].Count - 1];
+                    pools[kind].RemoveAt(pools[kind].Count - 1);
+
+                    // First names sometimes get a light variation ( «سارا ۷۷», «رضا_پرو», «مریم.ک» )
+                    if (kind < 2 && random.NextDouble() < config.nameVariationChance)
+                    {
+                        candidate += random.Next(2) == 0 ? " " + ECCUIKit.PersianDigits(random.Next(10, 100)) : NameSuffixes[random.Next(NameSuffixes.Length)];
+                    }
+
+                    if (used.Add(candidate)) name = candidate;
+                }
+
+                // Only when the pools ran out ( a huge league ): a numbered nickname, still unique
+                if (name == null)
+                {
+                    int number = used.Count + 1;
+                    do { name = Nicknames[number % Nicknames.Length] + "_" + ECCUIKit.PersianDigits(number); number++; } while (used.Add(name) == false);
+                }
+
+                entry.name = name;
+            }
+        }
+
+        static List<string> Shuffled(string[] source, System.Random random)
+        {
+            List<string> list = new List<string>(source);
+
+            for (int index = list.Count - 1; index > 0; index--)
+            {
+                int other = random.Next(index + 1);
+                string swap = list[index];
+                list[index] = list[other];
+                list[other] = swap;
+            }
+
+            return list;
+        }
+
+        static int PickKind(float[] shares, List<string>[] pools, System.Random random)
+        {
+            float total = 0;
+
+            for (int kind = 0; kind < shares.Length; kind++) if (pools[kind].Count > 0) total += shares[kind];
+
+            if (total <= 0)
+            {
+                for (int kind = 0; kind < pools.Length; kind++) if (pools[kind].Count > 0) return kind;
+                return -1;
+            }
+
+            double roll = random.NextDouble() * total;
+
+            for (int kind = 0; kind < shares.Length; kind++)
+            {
+                if (pools[kind].Count == 0) continue;
+
+                roll -= shares[kind];
+
+                if (roll < 0) return kind;
+            }
+
+            for (int kind = shares.Length - 1; kind >= 0; kind--) if (pools[kind].Count > 0) return kind;
+
+            return -1;
         }
 
         static int Range(System.Random random, int min, int max)
@@ -349,6 +581,9 @@ namespace EndlessCarChase
         {
             get
             {
+                // Locked: no rank at all
+                if (IsUnlocked == false) return 0;
+
                 List<ECCLeagueEntry> competitors = Competitors();
 
                 int stars = Data.stars;
@@ -408,9 +643,22 @@ namespace EndlessCarChase
         {
             if (string.IsNullOrEmpty(levelId)) return null;
 
-            Ensure();
-
             ECCLeagueSave data = Data;
+
+            // Locked: no stars count. The win that reaches the unlock level opens the league from 0 ( no retroactive stars )
+            if (data.unlocked == false)
+            {
+                if (CheckUnlock())
+                {
+                    PendingUnlockLevel = levelId;
+
+                    if (Changed != null) Changed();
+                }
+
+                return null;
+            }
+
+            Ensure();
 
             if (string.IsNullOrEmpty(winId) == false && data.wins.Contains(winId)) return null;
 

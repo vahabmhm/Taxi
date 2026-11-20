@@ -134,7 +134,13 @@ namespace EndlessCarChase.Levels
             // The weekly league: stars added by this win and the rank change since the rank the player saw last
             ECCLeagueWin league = level != null ? ECCWeeklyLeague.TakePendingWin(level.id) : null;
 
-            if (league != null)
+            // The win that reached the unlock level: a one-time, non-blocking message instead of the league section
+            if (level != null && ECCWeeklyLeague.TakeUnlockMessage(level.id))
+            {
+                Text unlockText = card.InfoBox("Icons/crown", ECCWeeklyLeagueUI.LeagueColor, ECCWeeklyLeague.UnlockMessage, 64);
+                unlockText.transform.parent.gameObject.AddComponent<ECCPopIn>();
+            }
+            else if (league != null)
             {
                 Text leagueText = card.InfoBox("Icons/crown", ECCWeeklyLeagueUI.LeagueColor, ECCWeeklyLeague.StarsText(league) + "\n" + ECCWeeklyLeague.RankChangeText(league), 76);
                 leagueText.transform.parent.gameObject.AddComponent<ECCPopIn>();

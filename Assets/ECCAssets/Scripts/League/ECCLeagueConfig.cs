@@ -14,6 +14,18 @@ namespace EndlessCarChase
     {
         const string ResourcePath = "ECCLeagueConfig";
 
+        [Header("Unlock")]
+        [Tooltip("The league opens when this level is reached ( the level before it was completed )")]
+        public int leagueUnlockLevel = 8;
+
+        [Header("Names ( share of each kind, any scale )")]
+        public float boyNameShare = 35;
+        public float girlNameShare = 35;
+        public float nicknameShare = 30;
+
+        [Tooltip("Chance ( 0-1 ) that a first name gets a light variation like «سارا ۷۷» or «رضا_پرو»")]
+        public float nameVariationChance = 0.2f;
+
         [Header("Table")]
         [Tooltip("Entries in the table, the player included")]
         public int leagueSize = 30;
